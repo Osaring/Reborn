@@ -815,7 +815,23 @@ function pDefis(){
 }
 
 /* ---------- Événements générés par l'IA (Gemini, offre gratuite) ---------- */
-const AI_MODELS=['gemini-flash-lite-latest','gemini-flash-latest'];
+const AI_BASE='https://generativelanguage.googleapis.com/v1beta/';
+let AI_LAST_ERR='';
+async function aiModels(force){
+  let cached=null;try{cached=JSON.parse(localStorage.getItem('rb_models')||'null');}catch(e){}
+  if(cached&&cached.length&&!force)return cached;
+  const r=await fetch(AI_BASE+'models?pageSize=200',{headers:{'x-goog-api-key':aiKey()}});
+  if(!r.ok){const t=await r.text().catch(()=>'');throw new Error((r.status===400||r.status===403?'cle':'http'+r.status)+'|'+t.slice(0,160));}
+  const j=await r.json();
+  const ok=(j.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes('generateContent')).map(m=>m.name.replace('models/',''))
+    .filter(n=>/flash/i.test(n)&&!/(image|tts|audio|live|embed|vision|exp|preview|thinking|8b)/i.test(n));
+  const ver=n=>{const m=n.match(/(\d+(?:\.\d+)?)/);return m?parseFloat(m[1]):0;};
+  ok.sort((a,b)=>(/lite/i.test(b)-/lite/i.test(a))||(/latest/i.test(b)-/latest/i.test(a))||ver(b)-ver(a));
+  const list=ok.slice(0,4);
+  if(!list.length)throw new Error('nomodel');
+  try{localStorage.setItem('rb_models',JSON.stringify(list));}catch(e){}
+  return list;
+}
 function aiKey(){try{return localStorage.getItem('rb_gkey')||'';}catch(e){return '';}}
 function aiOn(){try{return !!aiKey()&&localStorage.getItem('rb_ai_off')!=='1';}catch(e){return false;}}
 const AI_SCHEMA={type:'OBJECT',properties:{
@@ -853,21 +869,27 @@ Règles :
 - ${minor?'Le personnage est mineur : aucune romance, aucun contenu sexuel, rien de choquant. Reste adapté à son âge.':'Pas de contenu sexuel explicite ni de violence graphique.'}`;
 }
 async function aiGenerate(){
-  const key=aiKey();let lastErr='';
-  for(const model of AI_MODELS){
-    try{
-      const ctrl=new AbortController();const to=setTimeout(()=>ctrl.abort(),15000);
-      const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{method:'POST',signal:ctrl.signal,
-        headers:{'Content-Type':'application/json','x-goog-api-key':key},
-        body:JSON.stringify({contents:[{role:'user',parts:[{text:aiPrompt()}]}],generationConfig:{temperature:1.1,responseMimeType:'application/json',responseSchema:AI_SCHEMA}})});
-      clearTimeout(to);
-      if(!r.ok){lastErr=r.status===429?'quota':r.status===400||r.status===403?'cle':'http'+r.status;if(lastErr==='cle')break;continue;}
-      const j=await r.json();
-      const txt=j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts.map(p=>p.text||'').join('');
-      const ev=JSON.parse(txt);
-      if(!ev.choices||!ev.choices.length)throw new Error('vide');
-      return sanitizeAI(ev);
-    }catch(e){lastErr=lastErr||'reseau';}
+  let lastErr='';
+  for(const force of [false,true]){
+    const models=await aiModels(force);
+    for(const model of models){
+      try{
+        const ctrl=new AbortController();const to=setTimeout(()=>ctrl.abort(),25000);
+        const r=await fetch(`${AI_BASE}models/${model}:generateContent`,{method:'POST',signal:ctrl.signal,
+          headers:{'Content-Type':'application/json','x-goog-api-key':aiKey()},
+          body:JSON.stringify({contents:[{role:'user',parts:[{text:aiPrompt()}]}],generationConfig:{temperature:1.1,responseMimeType:'application/json',responseSchema:AI_SCHEMA}})});
+        clearTimeout(to);
+        if(!r.ok){const t=await r.text().catch(()=>'');lastErr=(r.status===429?'quota':r.status===403?'cle':'http'+r.status)+'|'+model+' '+t.slice(0,120);AI_LAST_ERR=lastErr;if(r.status===403)throw new Error(lastErr);continue;}
+        const j=await r.json();
+        let txt=(j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts||[]).map(p=>p.text||'').join('');
+        txt=txt.replace(/^```(?:json)?\s*/,'').replace(/```\s*$/,'');
+        const ev=JSON.parse(txt);
+        if(!ev.choices||!ev.choices.length)throw new Error('vide');
+        try{localStorage.setItem('rb_models',JSON.stringify([model].concat(models.filter(m=>m!==model))));}catch(e){}
+        return sanitizeAI(ev);
+      }catch(e){if(String(e.message).startsWith('cle'))throw e;lastErr=lastErr||('reseau|'+model+' '+(e.name==='AbortError'?'délai dépassé':e.message));AI_LAST_ERR=lastErr;}
+    }
+    if(lastErr.startsWith('quota'))break;
   }
   throw new Error(lastErr||'erreur');
 }
@@ -896,15 +918,20 @@ async function aiLoad(){
   }catch(e){
     S.queue.shift();
     const alt=pickEvents()[0];if(alt)S.queue.unshift(alt);
-    toast(e.message==='quota'?'IA : limite atteinte, événement classique':e.message==='cle'?'IA : clé invalide, vérifie-la dans Options':'IA indisponible, événement classique',[]);
+    const m=String(e.message);AI_LAST_ERR=m;
+    toast(m.startsWith('quota')?'IA : limite atteinte, événement classique':m.startsWith('cle')?'IA : clé refusée, vérifie-la dans Options':'IA indisponible ('+m.split('|')[0]+'), événement classique',[]);
   }
   AI_BUSY=false;save();runQueue();
 }
 async function aiTest(){
   const st=$('#m-aist');if(st)st.textContent='Test en cours…';
-  try{const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${AI_MODELS[0]}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':aiKey()},body:JSON.stringify({contents:[{parts:[{text:'Réponds juste OK'}]}]})});
-    if(st)st.textContent=r.ok?'✓ La clé fonctionne, l’IA est active !':r.status===429?'Limite atteinte, réessaie dans une minute':'✗ Clé refusée ('+r.status+'). Vérifie qu’elle est bien copiée.';}
-  catch(e){if(st)st.textContent='✗ Impossible de joindre l’IA (connexion ?)';}
+  try{
+    try{localStorage.removeItem('rb_models');}catch(e){}
+    const models=await aiModels(true);
+    const r=await fetch(`${AI_BASE}models/${models[0]}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':aiKey()},body:JSON.stringify({contents:[{parts:[{text:'Réponds juste OK'}]}]})});
+    const t=r.ok?'':await r.text().catch(()=>'');
+    if(st)st.textContent=r.ok?`✓ La clé fonctionne (modèle ${models[0]}). L’IA est active !`:r.status===429?'Limite atteinte, réessaie dans une minute':`✗ Erreur ${r.status} avec ${models[0]} : ${t.slice(0,140)}`;
+  }catch(e){const m=String(e.message);if(st)st.textContent=m.startsWith('cle')?'✗ Clé refusée par Google : '+m.split('|')[1]:m==='nomodel'?'✗ Aucun modèle Flash disponible sur ce compte':'✗ Impossible de joindre l’IA : '+m;}
 }
 function optionsModal(){
   const k=aiKey();let off=false;try{off=localStorage.getItem('rb_ai_off')==='1';}catch(e){}
@@ -913,7 +940,7 @@ function optionsModal(){
     <div class="ch" style="--c:var(--int)"><div class="ic">✦</div><div><div class="tt" style="font-size:15px">Événements IA</div><div class="sb">${k?(off?'Clé enregistrée · IA en pause':'Clé enregistrée · IA active'):'Gratuit avec une clé Google Gemini'}</div></div></div>
     <input id="m-key" type="password" placeholder="Colle ta clé ici (AIza…)" value="${esc(k)}" autocomplete="off" style="width:100%;background:var(--surf);border:0;border-radius:12px;padding:12px;font:inherit;color:var(--fg)">
     <div class="acts"><button class="pb go" id="m-savekey">Enregistrer</button>${k?`<button class="pb" id="m-testkey">Tester</button><button class="pb" id="m-toggleai">${off?'Réactiver':'Mettre en pause'}</button>`:''}</div>
-    <div id="m-aist" style="font-size:12.5px;color:var(--muted)"></div>
+    <div id="m-aist" style="font-size:12.5px;color:var(--muted);word-break:break-word;-webkit-user-select:text;user-select:text">${AI_LAST_ERR?'Dernière erreur : '+esc(AI_LAST_ERR):''}</div>
   </div>
   <p style="font-size:13px;color:var(--muted)">Ta partie est sauvegardée automatiquement sur ce téléphone. Version ${APP_VERSION}.</p>
   <button class="next" id="m-close">Reprendre</button><button class="next" id="m-update" style="background:var(--surf2);color:var(--fg)">Vérifier les mises à jour</button>${S?`<button class="next" id="m-abandon" style="background:var(--surf2);color:var(--neg)">Abandonner cette vie</button>`:''}`);
@@ -1043,7 +1070,7 @@ function relAction(k,id){
 
 
 /* ---------- Mises à jour ---------- */
-const APP_VERSION=7;
+const APP_VERSION=8;
 async function checkUpdate(manual){
   try{
     const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});
