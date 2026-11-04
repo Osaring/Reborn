@@ -21,7 +21,6 @@
   --fg:#161827; --muted:#6b7088; --accent:#ff5a36; --on-accent:#ffffff;
   --bon:#f5a300; --san:#17b26a; --int:#3478f6; --cha:#e8458f; --mon:#0f9f8f; --neg:#e5484d;
   --font-d:'Bricolage Grotesque',system-ui,sans-serif; --font-b:'Figtree',system-ui,-apple-system,sans-serif;
-  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#12131c; --surf:#1c1e2b; --surf2:#272a3a; --line:#2f3245;
@@ -34,14 +33,16 @@
 *{box-sizing:border-box}
 html,body{height:100%;margin:0;overflow:hidden;background:var(--bg);color:var(--fg)}
 body{font-family:var(--font-b);font-size:14px;line-height:1.35;-webkit-tap-highlight-color:transparent;touch-action:manipulation;
-  -webkit-user-select:none;user-select:none;
-  padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px))}
+  -webkit-user-select:none;user-select:none}
 [hidden]{display:none!important}
 button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
 button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 input{-webkit-user-select:text;user-select:text}
 .i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
-#app{height:100%;max-width:520px;margin:0 auto}
+#app{position:fixed;inset:0;display:flex;justify-content:center;background:var(--bg);
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:max(6px,calc(env(safe-area-inset-bottom,0px) - 14px));
+  padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px))}
+#app>.screen{width:100%;max-width:520px}
 .screen{height:100%;display:flex;flex-direction:column}
 .main{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-block:6px 10px;scrollbar-width:none}
 .main::-webkit-scrollbar{display:none}
@@ -55,6 +56,7 @@ input{-webkit-user-select:text;user-select:text}
 .agebx{text-align:right;line-height:.9}
 .age{font-family:var(--font-d);font-weight:800;font-size:34px;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
 .agel{font-size:11px;color:var(--muted);font-weight:700}
+.hd .icb{margin-left:-4px}
 .icb{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;background:var(--surf);color:var(--muted)}
 .rings{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
 .ring{position:relative;display:grid;justify-items:center;gap:2px}
@@ -79,7 +81,7 @@ input{-webkit-user-select:text;user-select:text}
 .objc.ok .i{color:var(--san)}
 .year{height:52px;padding:0 22px;border-radius:16px;background:var(--accent);color:var(--on-accent);font-family:var(--font-d);font-weight:800;font-size:19px;letter-spacing:-.01em;box-shadow:0 6px 18px color-mix(in srgb,var(--accent) 35%,transparent);transition:transform .1s}
 .year:active{transform:scale(.96)}
-.tabbar{display:grid;grid-template-columns:repeat(5,1fr);padding-block:8px 4px}
+.tabbar{display:grid;grid-template-columns:repeat(5,1fr);padding-block:8px 0}
 .tabbar button{display:grid;justify-items:center;gap:3px;font-size:10px;font-weight:700;color:var(--muted);padding:4px 0}
 .tabbar button.on{color:var(--fg)}
 .tabbar .dot{width:4px;height:4px;border-radius:50%;background:transparent}
@@ -223,6 +225,7 @@ input{-webkit-user-select:text;user-select:text}
       <div class="av" id="g-av"></div>
       <div class="who"><div class="nm" id="g-name"></div><div class="st" id="g-sub"></div></div>
       <div class="agebx"><div class="age" id="g-age"></div><div class="agel" id="g-agel">ans</div></div>
+      <button class="icb" id="g-refresh" aria-label="Rafraîchir"></button>
       <button class="icb" id="g-menu" aria-label="Options"></button>
     </header>
     <div class="rings" id="g-stats"></div>
@@ -691,6 +694,7 @@ const I={
  trophy:'<path d="M8 3.5h8v6a4 4 0 0 1-8 0zM8 5.5H4.5a3.5 3.5 0 0 0 3.6 4.4M16 5.5h3.5a3.5 3.5 0 0 1-3.6 4.4M12 13.5V17M8.5 21h7M9.5 17h5v4h-5z"/>',
  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
  grid:'<rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/>',
+ refresh:'<path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v4.5h-4.5"/>',
  dots:'<path d="M5 12h.01M12 12h.01M19 12h.01"/>',
  lock:'<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>',
  chev:'<path d="M9 6l6 6-6 6"/>',
@@ -728,7 +732,7 @@ function render(){
   $('#g-name').textContent=`${S.first} ${S.last}`;
   $('#g-sub').textContent=[statusLine(),S.city].filter(Boolean).join(' · ');
   $('#g-age').textContent=S.age;$('#g-agel').textContent=S.age>1?'ans':'an';
-  $('#g-menu').innerHTML=ico('dots');
+  $('#g-menu').innerHTML=ico('dots');$('#g-refresh').innerHTML=ico('refresh');
   $('#g-stats').innerHTML=Object.keys(STATS).map(k=>{const v=S.stats[k];return `<button class="ring ${v<25?'low':''}" data-stat="${k}" style="--c:${SC[k]}" aria-label="${STATS[k].n} ${v}"><div class="r"><svg class="g" viewBox="0 0 44 44"><circle class="tr" cx="22" cy="22" r="19"/><circle class="pr" cx="22" cy="22" r="19" pathLength="100" stroke-dasharray="${v} 100"/></svg>${ico(SI[k])}</div><b>${v}</b></button>`;}).join('');
   const mEl=$('#g-money');mEl.innerHTML=ico('coin')+fmt(S.money);mEl.className='money'+(S.money<0?' neg':'');
   const mx=S.age<3?0:S.age<6?2:4;
@@ -843,7 +847,7 @@ function renderStart(){
   if(!ST.challenge)ST.challenge=(freeT.length?pick(freeT):pick(TROPH)).id;
   const spent=ST.perks.reduce((s,id)=>s+PERKS.find(p=>p.id===id).cost,0);
   const cur=trophyById(ST.challenge);
-  $('#start').innerHTML=`<div class="brand"><h1>Re<span>born</span></h1><div class="stars"><div><b>${M.stars-spent} ★</b><small>${M.lives} vie${M.lives>1?'s':''}</small></div></div></div>
+  $('#start').innerHTML=`<div class="brand"><h1>Re<span>born</span></h1><div style="display:flex;gap:8px;align-items:center"><button class="icb" id="g-refresh2" aria-label="Rafraîchir" style="width:42px;height:42px">${ico('refresh')}</button><div class="stars"><div><b>${M.stars-spent} ★</b><small>${M.lives} vie${M.lives>1?'s':''}</small></div></div></div></div>
   <div class="main">
    <div class="sec">Ton personnage</div>
    <div class="field"><input id="s-first" value="${esc(ST.first)}" aria-label="Prénom"><input id="s-last" value="${esc(ST.last)}" aria-label="Nom"><button class="icb" id="s-roll" aria-label="Nom au hasard" style="width:46px;height:auto">${ico('dice')}</button></div>
@@ -881,6 +885,7 @@ document.addEventListener('click',ev=>{
   if(b.id==='d-obj'){const ob=OBJ.find(o=>o.id===S.obj);toast(ob?`Objectif de l’année : ${ob.t}. Réussi = +1 ★`:'Les objectifs arrivent à 3 ans',[]);return;}
   if(b.id==='d-year'){ageUp();$('#panel').scrollTop=0;return;}
   if(b.id==='g-menu'){openModal(`<div class="eh"><div class="ei">⚙️</div><div><h3>Options</h3></div></div><p style="font-size:14px;color:var(--muted)">Ta partie est sauvegardée automatiquement sur ce téléphone. Version ${APP_VERSION}.</p><button class="next" id="m-close">Reprendre</button><button class="next" id="m-update" style="background:var(--surf2);color:var(--fg)">Vérifier les mises à jour</button><button class="next" id="m-abandon" style="background:var(--surf2);color:var(--neg)">Abandonner cette vie</button>`);return;}
+  if(b.id==='g-refresh'||b.id==='g-refresh2'){save();b.style.transform='rotate(180deg)';b.style.transition='transform .3s';setTimeout(()=>location.replace(location.pathname+'?r='+Date.now()),250);return;}
   if(b.id==='m-close'){closeModal();return;}
   if(b.id==='m-update'){closeModal();checkUpdate(true);return;}
   if(b.id==='m-abandon'){b.id='m-abandon2';b.textContent='Confirmer l’abandon';return;}
@@ -925,7 +930,7 @@ function relAction(k,id){
 
 
 /* ---------- Mises à jour ---------- */
-const APP_VERSION=3;
+const APP_VERSION=4;
 async function checkUpdate(manual){
   try{
     const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});
