@@ -195,6 +195,7 @@ input{-webkit-user-select:text;user-select:text}
 .sheet{width:100%;max-width:500px;max-height:86%;overflow:auto;background:var(--surf);border-radius:28px;padding:22px 18px 18px;display:grid;gap:14px;animation:up .28s cubic-bezier(.2,.9,.3,1.2)}
 @keyframes up{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
 .eh{display:flex;align-items:center;gap:12px}
+.ai-spin{animation:spin 1.2s linear infinite;color:var(--int)}@keyframes spin{to{transform:rotate(360deg)}}
 .ei{width:58px;height:58px;border-radius:18px;display:grid;place-items:center;font-size:32px;background:var(--surf2);flex-shrink:0}
 .eh .ag{font-size:11px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.08em}
 .eh h3{margin:2px 0 0;font-family:var(--font-d);font-weight:800;font-size:20px;line-height:1.1;text-wrap:balance}
@@ -640,7 +641,8 @@ function ageUp(){
   // mort
   if(checkDeath())return;
   newYear();
-  S.queue.push(...pickEvents());
+  if(aiOn()&&S.age>=3){S.queue.push('ai_pending');const c=pickEvents();if(c.length&&Math.random()<.5)S.queue.push(c[0]);}
+  else S.queue.push(...pickEvents());
   checkTrophies();save();render();runQueue();
 }
 function checkDeath(){
@@ -812,24 +814,131 @@ function pDefis(){
   return h;
 }
 
+/* ---------- Événements générés par l'IA (Gemini, offre gratuite) ---------- */
+const AI_MODELS=['gemini-flash-lite-latest','gemini-flash-latest'];
+function aiKey(){try{return localStorage.getItem('rb_gkey')||'';}catch(e){return '';}}
+function aiOn(){try{return !!aiKey()&&localStorage.getItem('rb_ai_off')!=='1';}catch(e){return false;}}
+const AI_SCHEMA={type:'OBJECT',properties:{
+  icon:{type:'STRING'},title:{type:'STRING'},text:{type:'STRING'},
+  choices:{type:'ARRAY',items:{type:'OBJECT',properties:{
+    label:{type:'STRING'},chance:{type:'NUMBER'},
+    success:{type:'OBJECT',properties:{text:{type:'STRING'},bonheur:{type:'INTEGER'},sante:{type:'INTEGER'},intel:{type:'INTEGER'},charme:{type:'INTEGER'},argent:{type:'INTEGER'}},required:['text']},
+    failure:{type:'OBJECT',properties:{text:{type:'STRING'},bonheur:{type:'INTEGER'},sante:{type:'INTEGER'},intel:{type:'INTEGER'},charme:{type:'INTEGER'},argent:{type:'INTEGER'}},required:['text']}
+  },required:['label','chance','success']}}
+},required:['icon','title','text','choices']};
+function aiContext(){
+  const p=partner();const kids=S.rel.filter(r=>r.type==='enfant'&&r.alive).map(k=>`${first(k)} (${k.age} ans)`);
+  const recent=S.log.slice(-10).map(e=>`- ${e.a} ans : ${e.t.replace(EMO,'')}`).join('\n');
+  const seen=(S.aiSeen||[]).slice(-15).join(', ');
+  return `Personnage : ${S.first} ${S.last}, ${S.sex==='f'?'fille/femme':'garçon/homme'}, ${S.age} ans, vit à ${S.city}.
+Situation : ${statusLine()||'enfant'}. Diplôme : ${EDU[S.edu]}. Argent : ${Math.round(S.money)} €.
+Stats sur 100 : bonheur ${S.stats.bonheur}, santé ${S.stats.sante}, intelligence ${S.stats.intel}, charme ${S.stats.charme}.
+Couple : ${p?`${relLabel(p)} ${first(p)}`:'célibataire'}. Enfants : ${kids.join(', ')||'aucun'}. Animal : ${S.flags.pet?S.flags.pet.name:'aucun'}.
+Derniers moments de sa vie :
+${recent}
+Thèmes déjà utilisés récemment (à éviter) : ${seen||'aucun'}.`;
+}
+function aiPrompt(){
+  const minor=S.age<18;
+  return `Tu écris UN événement pour un jeu mobile de simulation de vie en français (style BitLife), pour l'année des ${S.age} ans du personnage.
+${aiContext()}
+
+Règles :
+- Événement surprenant, original et crédible pour cet âge et cette situation. Varie les registres : drôle, touchant, absurde, dilemme moral, coup de chance, galère du quotidien. Ne reprends pas un thème déjà utilisé.
+- Tu peux t'appuyer sur la vie du personnage (son métier, ses proches par leur prénom, ses derniers moments) pour créer de la continuité.
+- "icon" : UN seul emoji. "title" : 2 à 4 mots. "text" : 1 ou 2 phrases courtes (max 160 caractères), à la 2e personne ("tu").
+- 2 ou 3 choix. "label" : max 40 caractères. "chance" : probabilité de réussite entre 0.2 et 1 (1 = résultat certain, alors pas de "failure").
+- "success"/"failure" : "text" d'une phrase (max 120 caractères) et des effets entiers : bonheur, sante, intel, charme entre -12 et +12 (souvent entre -5 et +5), argent en euros${minor?' entre -50 et +100 (c’est un enfant)':` cohérent avec sa fortune (entre -${Math.max(2000,Math.round(Math.abs(S.money)*0.3))} et +${Math.max(3000,Math.round(Math.abs(S.money)*0.3))})`}. Mets 0 si pas d'effet.
+- Les choix doivent avoir des conséquences différentes et pas de bonne réponse évidente.
+- ${minor?'Le personnage est mineur : aucune romance, aucun contenu sexuel, rien de choquant. Reste adapté à son âge.':'Pas de contenu sexuel explicite ni de violence graphique.'}`;
+}
+async function aiGenerate(){
+  const key=aiKey();let lastErr='';
+  for(const model of AI_MODELS){
+    try{
+      const ctrl=new AbortController();const to=setTimeout(()=>ctrl.abort(),15000);
+      const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{method:'POST',signal:ctrl.signal,
+        headers:{'Content-Type':'application/json','x-goog-api-key':key},
+        body:JSON.stringify({contents:[{role:'user',parts:[{text:aiPrompt()}]}],generationConfig:{temperature:1.1,responseMimeType:'application/json',responseSchema:AI_SCHEMA}})});
+      clearTimeout(to);
+      if(!r.ok){lastErr=r.status===429?'quota':r.status===400||r.status===403?'cle':'http'+r.status;if(lastErr==='cle')break;continue;}
+      const j=await r.json();
+      const txt=j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts.map(p=>p.text||'').join('');
+      const ev=JSON.parse(txt);
+      if(!ev.choices||!ev.choices.length)throw new Error('vide');
+      return sanitizeAI(ev);
+    }catch(e){lastErr=lastErr||'reseau';}
+  }
+  throw new Error(lastErr||'erreur');
+}
+function sanitizeAI(ev){
+  const minor=S.age<18;const cap=minor?100:Math.max(3000,Math.round(Math.abs(S.money)*0.4));
+  const cl=o=>o?{text:String(o.text||'').slice(0,200),bonheur:clamp(o.bonheur|0,-15,15),sante:clamp(o.sante|0,-15,15),intel:clamp(o.intel|0,-15,15),charme:clamp(o.charme|0,-15,15),argent:clamp(Math.round(o.argent||0),-cap,cap)}:null;
+  return {icon:[...String(ev.icon||'✨')][0]||'✨',title:String(ev.title||'Imprévu').slice(0,40),text:String(ev.text||'').slice(0,240),
+    choices:ev.choices.slice(0,3).map(c=>({label:String(c.label||'…').slice(0,60),chance:Math.min(1,Math.max(.1,+c.chance||1)),success:cl(c.success),failure:cl(c.failure)}))};
+}
+function aiEventObj(){
+  const a=S.aiEv;if(!a)return null;
+  return {icon:a.icon,title:a.title,ai:true,text:()=>a.text,c:a.choices.map(c=>({t:c.label,f:()=>{
+    const ok=c.chance>=1||!c.failure||Math.random()<c.chance+S.luck;const o=ok?c.success:c.failure;
+    fx({bonheur:o.bonheur,sante:o.sante,intel:o.intel,charme:o.charme,money:S.age<18&&o.argent<0?Math.max(o.argent,-S.money):o.argent});
+    return o.text;}}))};
+}
+function getEv(id){return id==='ai'?aiEventObj():EV[id];}
+let AI_BUSY=false;
+async function aiLoad(){
+  if(AI_BUSY)return;AI_BUSY=true;
+  openModal(`<div class="eh"><div class="ei ai-spin">✦</div><div><div class="ag">${S.age} an${S.age>1?'s':''}</div><h3>Le destin s’écrit…</h3></div></div><p style="color:var(--muted);font-size:14px">L’IA imagine ton prochain événement.</p>`);
+  try{
+    S.aiEv=await aiGenerate();
+    S.aiSeen=(S.aiSeen||[]).concat(S.aiEv.title).slice(-30);
+    S.queue[0]='ai';
+  }catch(e){
+    S.queue.shift();
+    const alt=pickEvents()[0];if(alt)S.queue.unshift(alt);
+    toast(e.message==='quota'?'IA : limite atteinte, événement classique':e.message==='cle'?'IA : clé invalide, vérifie-la dans Options':'IA indisponible, événement classique',[]);
+  }
+  AI_BUSY=false;save();runQueue();
+}
+async function aiTest(){
+  const st=$('#m-aist');if(st)st.textContent='Test en cours…';
+  try{const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${AI_MODELS[0]}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':aiKey()},body:JSON.stringify({contents:[{parts:[{text:'Réponds juste OK'}]}]})});
+    if(st)st.textContent=r.ok?'✓ La clé fonctionne, l’IA est active !':r.status===429?'Limite atteinte, réessaie dans une minute':'✗ Clé refusée ('+r.status+'). Vérifie qu’elle est bien copiée.';}
+  catch(e){if(st)st.textContent='✗ Impossible de joindre l’IA (connexion ?)';}
+}
+function optionsModal(){
+  const k=aiKey();let off=false;try{off=localStorage.getItem('rb_ai_off')==='1';}catch(e){}
+  openModal(`<div class="eh"><div class="ei">⚙️</div><div><h3>Options</h3></div></div>
+  <div class="card" style="background:var(--surf2);margin:0">
+    <div class="ch" style="--c:var(--int)"><div class="ic">✦</div><div><div class="tt" style="font-size:15px">Événements IA</div><div class="sb">${k?(off?'Clé enregistrée · IA en pause':'Clé enregistrée · IA active'):'Gratuit avec une clé Google Gemini'}</div></div></div>
+    <input id="m-key" type="password" placeholder="Colle ta clé ici (AIza…)" value="${esc(k)}" autocomplete="off" style="width:100%;background:var(--surf);border:0;border-radius:12px;padding:12px;font:inherit;color:var(--fg)">
+    <div class="acts"><button class="pb go" id="m-savekey">Enregistrer</button>${k?`<button class="pb" id="m-testkey">Tester</button><button class="pb" id="m-toggleai">${off?'Réactiver':'Mettre en pause'}</button>`:''}</div>
+    <div id="m-aist" style="font-size:12.5px;color:var(--muted)"></div>
+  </div>
+  <p style="font-size:13px;color:var(--muted)">Ta partie est sauvegardée automatiquement sur ce téléphone. Version ${APP_VERSION}.</p>
+  <button class="next" id="m-close">Reprendre</button><button class="next" id="m-update" style="background:var(--surf2);color:var(--fg)">Vérifier les mises à jour</button>${S?`<button class="next" id="m-abandon" style="background:var(--surf2);color:var(--neg)">Abandonner cette vie</button>`:''}`);
+  setTimeout(()=>{try{document.querySelector('#m-key').style.userSelect='text';}catch(e){}},0);
+}
+
 /* ---------- Modale ---------- */
 function openModal(html){$('#sheet').innerHTML=html;$('#modal').hidden=false;}
 function closeModal(){$('#modal').hidden=true;}
 function runQueue(){
   if(!S||!S.alive)return;
   if(!S.queue.length){closeModal();render();return;}
-  const e=EV[S.queue[0]];
+  if(S.queue[0]==='ai_pending'){if(aiOn())return aiLoad();S.queue.shift();return runQueue();}
+  const e=getEv(S.queue[0]);
   if(!e||(e.cond&&!e.cond())){S.queue.shift();return runQueue();}
   const ch=e.c.map((c,i)=>[c,i]).filter(([c])=>!c.cond||c.cond());
-  openModal(`<div class="eh"><div class="ei">${e.icon}</div><div><div class="ag">${S.age} an${S.age>1?'s':''}</div><h3>${e.title}</h3></div></div><p>${esc(e.text())}</p><div class="cbs">${ch.map(([c,i])=>`<button class="cb" data-choice="${i}">${esc(c.t)}</button>`).join('')}</div>`);
+  openModal(`<div class="eh"><div class="ei">${e.icon}</div><div><div class="ag">${S.age} an${S.age>1?'s':''}${e.ai?' · ✦ IA':''}</div><h3>${esc(e.title)}</h3></div></div><p>${esc(e.text())}</p><div class="cbs">${ch.map(([c,i])=>`<button class="cb" data-choice="${i}">${esc(c.t)}</button>`).join('')}</div>`);
 }
 function choose(i){
-  const e=EV[S.queue[0]];if(!e)return;
+  const e=getEv(S.queue[0]);if(!e)return;
   S.queue.shift();CUR=[];
   const t=e.c[i].f();
   log(e.icon+' '+t,CUR);
   checkTrophies();save();
-  openModal(`<div class="eh"><div class="ei">${e.icon}</div><div><div class="ag">${S.age} an${S.age>1?'s':''}</div><h3>${e.title}</h3></div></div><p>${esc(t)}</p>${CUR.length?`<div class="dls">${pills(CUR)}</div>`:''}<button class="next" id="m-next">Continuer</button>`);
+  openModal(`<div class="eh"><div class="ei">${e.icon}</div><div><div class="ag">${S.age} an${S.age>1?'s':''}</div><h3>${esc(e.title)}</h3></div></div><p>${esc(t)}</p>${CUR.length?`<div class="dls">${pills(CUR)}</div>`:''}<button class="next" id="m-next">Continuer</button>`);
 }
 function showDeath(){
   const job=S.job?jobTitle(S.job):S.retired?'Retraité'+g('','e'):'Aucun';
@@ -848,7 +957,7 @@ function renderStart(){
   if(!ST.challenge)ST.challenge=(freeT.length?pick(freeT):pick(TROPH)).id;
   const spent=ST.perks.reduce((s,id)=>s+PERKS.find(p=>p.id===id).cost,0);
   const cur=trophyById(ST.challenge);
-  $('#start').innerHTML=`<div class="brand"><h1>Re<span>born</span></h1><div style="display:flex;gap:8px;align-items:center"><button class="icb" id="g-refresh2" aria-label="Rafraîchir" style="width:42px;height:42px">${ico('refresh')}</button><div class="stars"><div><b>${M.stars-spent} ★</b><small>${M.lives} vie${M.lives>1?'s':''}</small></div></div></div></div>
+  $('#start').innerHTML=`<div class="brand"><h1>Re<span>born</span></h1><div style="display:flex;gap:8px;align-items:center"><button class="icb" id="g-refresh2" aria-label="Rafraîchir" style="width:42px;height:42px">${ico('refresh')}</button><button class="icb" id="s-menu" aria-label="Options" style="width:42px;height:42px">${ico('dots')}</button><div class="stars"><div><b>${M.stars-spent} ★</b><small>${M.lives} vie${M.lives>1?'s':''}</small></div></div></div></div>
   <div class="main">
    <div class="sec">Ton personnage</div>
    <div class="field"><input id="s-first" value="${esc(ST.first)}" aria-label="Prénom"><input id="s-last" value="${esc(ST.last)}" aria-label="Nom"><button class="icb" id="s-roll" aria-label="Nom au hasard" style="width:46px;height:auto">${ico('dice')}</button></div>
@@ -885,7 +994,10 @@ document.addEventListener('click',ev=>{
   if(d.tinfo){const t=trophyById(d.tinfo);toast(`${t.t} : ${t.d}`,[]);return;}
   if(b.id==='d-obj'){const ob=OBJ.find(o=>o.id===S.obj);toast(ob?`Objectif de l’année : ${ob.t}. Réussi = +1 ★`:'Les objectifs arrivent à 3 ans',[]);return;}
   if(b.id==='d-year'){ageUp();$('#panel').scrollTop=0;return;}
-  if(b.id==='g-menu'){openModal(`<div class="eh"><div class="ei">⚙️</div><div><h3>Options</h3></div></div><p style="font-size:14px;color:var(--muted)">Ta partie est sauvegardée automatiquement sur ce téléphone. Version ${APP_VERSION}.</p><button class="next" id="m-close">Reprendre</button><button class="next" id="m-update" style="background:var(--surf2);color:var(--fg)">Vérifier les mises à jour</button><button class="next" id="m-abandon" style="background:var(--surf2);color:var(--neg)">Abandonner cette vie</button>`);return;}
+  if(b.id==='g-menu'||b.id==='s-menu'){optionsModal();return;}
+  if(b.id==='m-savekey'){const v=($('#m-key').value||'').trim();try{if(v)localStorage.setItem('rb_gkey',v);else localStorage.removeItem('rb_gkey');localStorage.removeItem('rb_ai_off');}catch(e){}optionsModal();if(v)aiTest();else $('#m-aist').textContent='Clé supprimée';return;}
+  if(b.id==='m-testkey'){aiTest();return;}
+  if(b.id==='m-toggleai'){try{const o=localStorage.getItem('rb_ai_off')==='1';o?localStorage.removeItem('rb_ai_off'):localStorage.setItem('rb_ai_off','1');}catch(e){}optionsModal();return;}
   if(b.id==='g-refresh'||b.id==='g-refresh2'){save();b.style.transform='rotate(180deg)';b.style.transition='transform .3s';setTimeout(()=>location.replace(location.pathname+'?r='+Date.now()),250);return;}
   if(b.id==='m-close'){closeModal();return;}
   if(b.id==='m-update'){closeModal();checkUpdate(true);return;}
@@ -931,7 +1043,7 @@ function relAction(k,id){
 
 
 /* ---------- Mises à jour ---------- */
-const APP_VERSION=6;
+const APP_VERSION=7;
 async function checkUpdate(manual){
   try{
     const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});
