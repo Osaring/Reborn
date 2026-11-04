@@ -1,0 +1,836 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-title" content="Reborn">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#11161f">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Reborn</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Figtree:wght@400;600;700&display=swap">
+<style>
+/* Layout : une colonne façon appli mobile — en-tête d'identité, jauges, onglets, et un dock fixe en bas avec le bouton « Année suivante ». */
+:root{
+  --bg:#11161f; --surf:#1a2130; --surf2:#242d3e; --line:#303b50;
+  --fg:#eef2f8; --muted:#98a4b7; --accent:#ffb547; --accent-ink:#2b1c00;
+  --bon:#ffc94d; --san:#4fd19a; --int:#6da8ff; --cha:#ff82b0; --neg:#ff6b6b; --pos:#4fd19a;
+  --font-d:'Unbounded',system-ui,sans-serif; --font-b:'Figtree',system-ui,-apple-system,sans-serif;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){
+  --bg:#f2f4f8; --surf:#ffffff; --surf2:#e8ecf3; --line:#d5dbe6;
+  --fg:#151b26; --muted:#5b6577; --accent:#e08600; --accent-ink:#ffffff;
+  --bon:#c48600; --san:#138f5c; --int:#2c6cd4; --cha:#d23a75; --neg:#cf3434; --pos:#138f5c; color-scheme:light}}
+:root[data-theme="light"]{
+  --bg:#f2f4f8; --surf:#ffffff; --surf2:#e8ecf3; --line:#d5dbe6;
+  --fg:#151b26; --muted:#5b6577; --accent:#e08600; --accent-ink:#ffffff;
+  --bon:#c48600; --san:#138f5c; --int:#2c6cd4; --cha:#d23a75; --neg:#cf3434; --pos:#138f5c; color-scheme:light}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--font-b);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:560px;margin:0 auto;padding-block:14px 130px}
+h1,h2,h3{font-family:var(--font-d);text-wrap:balance;margin:0}
+.muted{color:var(--muted)}
+.label{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:700}
+
+/* Accueil */
+.hero{padding-block:24px 8px;display:grid;gap:6px}
+.hero h1{font-size:40px;font-weight:800;letter-spacing:-.02em;line-height:1}
+.hero h1 span{color:var(--accent)}
+.meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.chip{background:var(--surf);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+.chip b{color:var(--accent)}
+.block{display:grid;gap:10px;margin-top:22px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.field{display:flex;gap:8px}
+.field input{flex:1;min-width:0;background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:12px;font:inherit;color:var(--fg)}
+.seg{display:flex;background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;padding:9px 6px;border-radius:9px;font-weight:600;font-size:14px;color:var(--muted)}
+.seg button.on{background:var(--surf2);color:var(--fg)}
+.opt{display:flex;justify-content:space-between;gap:12px;align-items:center;text-align:left;width:100%;background:var(--surf);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.opt.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.opt[disabled]{opacity:.45;cursor:not-allowed}
+.opt .t{font-weight:700}
+.opt .d{font-size:13px;color:var(--muted)}
+.opt .cost{font-weight:700;color:var(--accent);white-space:nowrap;font-variant-numeric:tabular-nums}
+.opt .done{color:var(--pos);font-size:12px;font-weight:700}
+.list{display:grid;gap:8px}
+.btn{display:block;width:100%;padding:15px;border-radius:14px;font-family:var(--font-d);font-weight:700;font-size:15px;background:var(--accent);color:var(--accent-ink);text-align:center}
+.btn.ghost{background:var(--surf);color:var(--fg);border:1px solid var(--line)}
+.btn[disabled]{opacity:.5}
+.dice{padding:0 14px;border-radius:12px;background:var(--surf);border:1px solid var(--line);font-weight:700}
+
+/* Jeu */
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding-block:6px 12px}
+.who{min-width:0}
+.who h2{font-size:19px;font-weight:700;line-height:1.15}
+.who .sub{font-size:13px;color:var(--muted);margin-top:3px}
+.agebox{text-align:right;flex-shrink:0}
+.age{font-family:var(--font-d);font-size:34px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.age small{font-size:14px;font-weight:500;color:var(--muted);margin-left:3px}
+.money{font-weight:700;font-variant-numeric:tabular-nums;margin-top:4px;font-size:14px}
+.money.neg{color:var(--neg)}
+.menu{margin-top:4px;font-size:12px;color:var(--muted);text-decoration:underline}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;background:var(--surf);border:1px solid var(--line);border-radius:16px;padding:14px}
+.stat .h{display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:5px}
+.stat .h span:last-child{font-variant-numeric:tabular-nums}
+.bar{height:7px;border-radius:9px;background:var(--surf2);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:9px;transition:width .5s ease}
+.tabs{display:flex;gap:4px;margin-block:16px 12px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{padding:8px 12px;border-radius:999px;font-weight:700;font-size:13px;color:var(--muted);white-space:nowrap}
+.tabs button.on{background:var(--fg);color:var(--bg)}
+.yr{margin-top:14px}
+.yr h3{font-size:13px;color:var(--accent);margin-bottom:6px}
+.entry{padding:9px 0;border-bottom:1px solid var(--line);display:grid;gap:5px}
+.entry:last-child{border-bottom:0}
+.pills{display:flex;gap:5px;flex-wrap:wrap}
+.pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--surf2);font-variant-numeric:tabular-nums}
+.pill.bonheur{color:var(--bon)}.pill.sante{color:var(--san)}.pill.intel{color:var(--int)}.pill.charme{color:var(--cha)}
+.pill.money{color:var(--pos)}.pill.neg{color:var(--neg)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.act{text-align:left;background:var(--surf);border:1px solid var(--line);border-radius:14px;padding:12px;display:grid;gap:3px;min-width:0}
+.act .t{font-weight:700;font-size:14px}
+.act .d{font-size:12px;color:var(--muted)}
+.act[disabled]{opacity:.4;cursor:not-allowed}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:16px;padding:14px;display:grid;gap:10px}
+.card h3{font-size:16px}
+.kv{display:flex;justify-content:space-between;gap:10px;font-size:14px}
+.kv span:last-child{font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
+.mini{display:flex;gap:6px;flex-wrap:wrap}
+.mini button{padding:8px 11px;border-radius:10px;background:var(--surf2);font-size:13px;font-weight:600}
+.mini button[disabled]{opacity:.4;cursor:not-allowed}
+.mini button.warn{color:var(--neg)}
+.person{display:grid;gap:8px;padding:12px 0;border-bottom:1px solid var(--line)}
+.person:last-child{border-bottom:0}
+.person .n{display:flex;justify-content:space-between;gap:8px}
+.person .n b{font-size:15px}
+.person.dead{opacity:.5}
+.sect{margin-top:18px;display:grid;gap:8px}
+.sect>.label{margin-bottom:2px}
+.prog{height:5px;border-radius:9px;background:var(--surf2);overflow:hidden;margin-top:6px}
+.prog i{display:block;height:100%;background:var(--accent)}
+.empty{color:var(--muted);font-size:14px;padding:10px 0}
+
+/* Dock */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--bg);border-top:1px solid var(--line);
+  padding-top:10px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.dock .in{max-width:560px;margin:0 auto;display:grid;gap:8px}
+.dinfo{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px}
+.obj{min-width:0;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.obj b{color:var(--fg)}
+.obj.ok b{color:var(--pos)}
+.pips{display:flex;gap:4px;align-items:center;flex-shrink:0}
+.pips i{width:9px;height:9px;border-radius:50%;background:var(--surf2);border:1px solid var(--line)}
+.pips i.on{background:var(--accent);border-color:var(--accent)}
+
+/* Modale */
+.modal{position:fixed;inset:0;z-index:50;background:rgba(5,8,14,.62);display:flex;align-items:flex-end;justify-content:center;
+  padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+.sheet{width:100%;max-width:540px;max-height:85vh;overflow:auto;background:var(--surf);border:1px solid var(--line);border-radius:22px;padding:20px;display:grid;gap:14px;animation:up .25s ease}
+@keyframes up{from{transform:translateY(24px);opacity:.4}to{transform:none;opacity:1}}
+.sheet .ico{font-size:38px;line-height:1}
+.sheet h3{font-size:18px}
+.sheet p{margin:0;font-size:16px}
+.choices{display:grid;gap:8px}
+.choice{text-align:left;padding:14px;border-radius:14px;background:var(--surf2);font-weight:600;font-size:15px}
+.big{font-family:var(--font-d);font-size:44px;font-weight:800;color:var(--accent);line-height:1}
+.toasts{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));left:0;right:0;z-index:60;display:grid;justify-items:center;gap:6px;pointer-events:none;padding-inline:16px}
+.toast{background:var(--fg);color:var(--bg);border-radius:14px;padding:9px 14px;font-size:13px;font-weight:600;max-width:420px;box-shadow:0 6px 20px rgba(0,0,0,.25);animation:up .2s ease}
+.toast .pill{background:rgba(127,127,127,.18)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (max-width:360px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section id="start" hidden></section>
+  <section id="game" hidden>
+    <header class="top">
+      <div class="who"><h2 id="g-name"></h2><div class="sub" id="g-sub"></div><button class="menu" id="g-menu">Options</button></div>
+      <div class="agebox"><div class="age" id="g-age"></div><div class="money" id="g-money"></div></div>
+    </header>
+    <div class="stats" id="g-stats"></div>
+    <nav class="tabs" id="g-tabs"></nav>
+    <main id="panel"></main>
+  </section>
+</div>
+<footer class="dock" id="dock" hidden>
+  <div class="in">
+    <div class="dinfo"><div class="obj" id="d-obj"></div><div class="pips" id="d-pips" aria-label="Énergie"></div></div>
+    <button class="btn" id="d-year">Année suivante</button>
+  </div>
+</footer>
+<div class="modal" id="modal" hidden><div class="sheet" id="sheet"></div></div>
+<div class="toasts" id="toasts"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const R=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,v));
+const fmt=n=>(n<0?'−':'')+Math.abs(Math.round(n)).toLocaleString('fr-FR')+' €';
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const PM=['Lucas','Hugo','Léo','Gabriel','Louis','Arthur','Jules','Adam','Nathan','Raphaël','Tom','Noah','Théo','Ethan','Malo','Sacha','Yanis','Enzo','Maxime','Antoine','Samuel','Mehdi','Karim','Paul','Victor','Baptiste','Valentin','Bastien'];
+const PF=['Emma','Jade','Louise','Alice','Chloé','Léa','Manon','Inès','Lina','Camille','Sarah','Zoé','Juliette','Nina','Rose','Anna','Léna','Mila','Clara','Yasmine','Lou','Margaux','Aïcha','Elsa','Romane'];
+const NOMS=['Martin','Bernard','Dubois','Thomas','Robert','Richard','Petit','Durand','Leroy','Moreau','Simon','Laurent','Lefebvre','Michel','Garcia','David','Roux','Vincent','Fournier','Morel','Girard','Bonnet','Dupont','Lambert','Fontaine','Rousseau','Benali','Nguyen','Da Silva','Kaya'];
+const VILLES=['Paris','Lyon','Marseille','Lille','Bordeaux','Nantes','Toulouse','Strasbourg','Rennes','Nice','Montpellier','Brest','Grenoble','Dijon'];
+
+let S=null;
+let M={stars:0,lives:0,trophies:{},best:0};
+let TAB='journal', CUR=[], CONFIRM=null;
+const KEY='destinees_v1';
+function save(){try{localStorage.setItem(KEY,JSON.stringify({S,M}))}catch(e){}}
+function load(){try{return JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){return null}}
+
+const STATS={bonheur:{n:'Bonheur',c:'var(--bon)'},sante:{n:'Santé',c:'var(--san)'},intel:{n:'Intelligence',c:'var(--int)'},charme:{n:'Charme',c:'var(--cha)'}};
+const g=(m,f)=>S&&S.sex==='f'?f:m;
+const chance=p=>Math.random()<p+(S?S.luck:0);
+
+function fx(o){
+  for(const k in o){const v=Math.round(o[k]);if(!v)continue;
+    if(k==='money'){S.money+=v;CUR.push([k,v]);}
+    else if(STATS[k]){const b=S.stats[k];S.stats[k]=clamp(b+v);const d=S.stats[k]-b;if(d)CUR.push([k,d]);}
+  }
+}
+function log(t,d=[]){S.log.push({a:S.age,t,d:d.slice()});if(S.log.length>400)S.log.shift();}
+function pills(d){return d.map(([k,v])=>`<span class="pill ${k} ${v<0?'neg':''}">${k==='money'?(v>0?'+':'')+fmt(v):(v>0?'+':'−')+Math.abs(v)+' '+STATS[k].n}</span>`).join('');}
+
+/* ---------- Personnes ---------- */
+function rname(sx){return sx==='f'?pick(PF):pick(PM);}
+let RID=1;
+function person(type,sx,age,rel,last){return {id:'p'+Date.now().toString(36)+(RID++),type,sx,name:rname(sx)+' '+(last||pick(NOMS)),age,rel,alive:true};}
+function partner(){return S.rel.find(r=>r.alive&&!r.ex&&(r.type==='partenaire'||r.type==='conjoint'));}
+function friends(){return S.rel.filter(r=>r.alive&&r.type==='ami');}
+function parents(){return S.rel.filter(r=>r.alive&&(r.type==='mère'||r.type==='père'));}
+function relLabel(r){
+  const f=r.sx==='f';
+  return {mère:'Mère',père:'Père',fratrie:f?'Sœur':'Frère',ami:f?'Amie':'Ami',partenaire:f?'Copine':'Copain',conjoint:f?'Épouse':'Époux',enfant:f?'Fille':'Fils'}[r.type]||r.type;
+}
+function addPartner(){const sx=S.attr==='both'?pick(['m','f']):S.attr;const p=person('partenaire',sx,Math.max(18,S.age+R(-4,4)),R(45,70));S.rel.push(p);return p;}
+function addFriend(){const sx=pick(['m','f']);const p=person('ami',sx,Math.max(3,S.age+R(-1,1)),R(50,70));S.rel.push(p);return p;}
+function addKid(){const sx=pick(['m','f']);const k=person('enfant',sx,0,85,S.last);S.rel.push(k);S.flags.kids++;return k;}
+function first(p){return p.name.split(' ')[0];}
+
+/* ---------- Métiers ---------- */
+const JOBS=[
+ {id:'serveur',t:['Serveur','Serveuse'],edu:0,intel:0,sal:21000},
+ {id:'caissier',t:['Caissier','Caissière'],edu:0,intel:0,sal:20500},
+ {id:'livreur',t:['Livreur','Livreuse'],edu:0,intel:0,sal:22000},
+ {id:'vendeur',t:['Vendeur','Vendeuse'],edu:1,intel:20,sal:24000},
+ {id:'assistant',t:['Assistant de direction','Assistante de direction'],edu:1,intel:35,sal:28000},
+ {id:'infirmier',t:['Infirmier','Infirmière'],edu:2,intel:45,sal:32000},
+ {id:'comptable',t:['Comptable','Comptable'],edu:2,intel:50,sal:38000},
+ {id:'dev',t:['Développeur','Développeuse'],edu:2,intel:55,sal:42000},
+ {id:'prof',t:['Professeur','Professeure'],edu:3,intel:55,sal:34000},
+ {id:'ingenieur',t:['Ingénieur','Ingénieure'],edu:3,intel:65,sal:50000},
+ {id:'avocat',t:['Avocat','Avocate'],edu:3,intel:70,sal:60000},
+ {id:'chercheur',t:['Chercheur','Chercheuse'],edu:4,intel:75,sal:46000},
+ {id:'medecin',t:['Médecin','Médecin'],edu:5,intel:70,sal:85000},
+ {id:'influenceur',t:['Influenceur','Influenceuse'],edu:0,charme:70,sal:0,random:true},
+];
+const LV=['Junior','Confirmé','Senior','Responsable','Directeur'];
+const LVF=['Junior','Confirmée','Senior','Responsable','Directrice'];
+const LVM=[1,1.2,1.45,1.8,2.4];
+const EDU=['Aucun diplôme','Bac','Licence','Master','Doctorat','Doctorat de médecine'];
+const jd=id=>JOBS.find(j=>j.id===id);
+function jobTitle(j){const d=jd(j.id);return (S.sex==='f'?d.t[1]:d.t[0])+' · '+(S.sex==='f'?LVF:LV)[j.level];}
+function eduOK(req){if(req===5)return S.edu===5;const e=S.edu===5?4:S.edu;return e>=req;}
+function salary(){const j=S.job,d=jd(j.id);if(d.random)return j.lastInc||0;return Math.round(d.sal*LVM[j.level]*j.mult);}
+
+/* ---------- Atouts & trophées ---------- */
+const PERKS=[
+ {id:'genius',t:'Surdoué',d:'+25 en intelligence à la naissance',cost:10},
+ {id:'charm',t:'Charismatique',d:'+25 en charme à la naissance',cost:10},
+ {id:'iron',t:'Santé de fer',d:'+15 en santé, vieillit deux fois moins vite',cost:12},
+ {id:'rich',t:'Famille aisée',d:'Tes parents te versent 40 000 € à 18 ans',cost:15},
+ {id:'lucky',t:'Bonne étoile',d:'Plus de chance dans tous les tirages',cost:20},
+];
+const TROPH=[
+ {id:'millionnaire',t:'Millionnaire',d:'Avoir 1 000 000 € sur ton compte',ok:()=>S.money>=1e6,p:()=>S.money/1e6},
+ {id:'centenaire',t:'Centenaire',d:'Fêter tes 100 ans',ok:()=>S.age>=100,p:()=>S.age/100},
+ {id:'docteur',t:'Blouse blanche',d:'Devenir médecin',ok:()=>S.job&&S.job.id==='medecin',p:()=>S.edu===5?.9:S.study&&S.study.type==='medecine'?.5:0},
+ {id:'tribu',t:'Tribu',d:'Avoir 3 enfants',ok:()=>S.flags.kids>=3,p:()=>S.flags.kids/3},
+ {id:'genie',t:'Génie',d:'Atteindre 100 en intelligence',ok:()=>S.stats.intel>=100,p:()=>S.stats.intel/100},
+ {id:'icone',t:'Icône',d:'Atteindre 100 en charme',ok:()=>S.stats.charme>=100,p:()=>S.stats.charme/100},
+ {id:'patron',t:'Grand patron',d:'Atteindre le grade de directeur',ok:()=>S.job&&S.job.level>=4,p:()=>S.job?S.job.level/4:0},
+ {id:'globe',t:'Globe-trotteur',d:'Faire 10 voyages',ok:()=>S.flags.trips>=10,p:()=>S.flags.trips/10},
+ {id:'zen',t:'Sérénité',d:'Avoir 80 ans avec un bonheur d’au moins 90',ok:()=>S.age>=80&&S.stats.bonheur>=90,p:()=>Math.min(S.age/80,S.stats.bonheur/90)},
+ {id:'rentier',t:'Rentier',d:'Atteindre 60 ans sans jamais avoir eu d’emploi',ok:()=>S.age>=60&&!S.flags.everWorked,p:()=>S.flags.everWorked?0:S.age/60},
+ {id:'fideles',t:'Pour la vie',d:'Fêter 40 ans de mariage',ok:()=>S.flags.married&&partner()&&S.age-S.flags.marriedAt>=40,p:()=>S.flags.married&&partner()?(S.age-S.flags.marriedAt)/40:0},
+ {id:'licorne',t:'Licorne',d:'Faire de ta start-up un succès',ok:()=>!!S.flags.startupWin,p:()=>0},
+];
+const trophyById=id=>TROPH.find(t=>t.id===id);
+
+/* ---------- Objectifs de l'année ---------- */
+const OBJ=[
+ {id:'sport',t:'Fais du sport 2 fois',min:5,ok:()=>S.yr.sport>=2},
+ {id:'etude',t:'Étudie ou lis 2 fois',min:6,ok:()=>S.yr.etude+S.yr.lire>=2},
+ {id:'bon',t:'Finis l’année avec un bonheur d’au moins 65',min:3,ok:()=>S.stats.bonheur>=65},
+ {id:'social',t:'Passe du temps avec 2 proches',min:3,ok:()=>S.yr.social>=2},
+ {id:'eco',t:'Finis l’année avec plus d’argent qu’au début',min:19,ok:()=>S.money>S.yrStartMoney},
+ {id:'fete',t:'Sors faire la fête au moins une fois',min:15,ok:()=>S.yr.fete>=1},
+ {id:'bosse',t:'Travaille dur 2 fois',min:18,cond:()=>!!S.job,ok:()=>S.yr.bosse>=2},
+ {id:'sante',t:'Garde une santé d’au moins 70',min:3,ok:()=>S.stats.sante>=70},
+ {id:'zen',t:'Médite au moins une fois',min:12,ok:()=>S.yr.medit>=1},
+];
+
+/* ---------- Événements ---------- */
+const EV={};
+function E(id,min,max,p,o){EV[id]=Object.assign({id,min,max,p},o);}
+const C=(t,f,cond)=>({t,f,cond});
+
+E('recre',6,11,.25,{icon:'🧒',title:'Dans la cour de récré',text:()=>'Un grand de CM2 te bouscule et tu tombes devant tout le monde.',c:[
+ C('Le pousser à ton tour',()=>chance(.5)?(fx({bonheur:3,charme:2}),'Il ne t’embêtera plus. Toute la classe en parle.'):(fx({bonheur:-3,sante:-2}),'Il était plus fort. Tu repars avec un genou écorché.')),
+ C('Aller voir la maîtresse',()=>(fx({intel:1,bonheur:1}),'La maîtresse le punit. Justice est faite.')),
+ C('Pleurer dans un coin',()=>(fx({bonheur:-4}),'Tu passes une très mauvaise journée.')),
+]});
+E('chien',5,15,.12,{icon:'🐕',title:'Un chien perdu',cond:()=>!S.flags.pet,text:()=>'Un chiot sans collier te suit jusqu’à la maison.',c:[
+ C('Supplier tes parents de le garder',()=>{if(chance(.65)){S.flags.pet={name:pick(['Biscuit','Max','Nala','Oréo','Pépite','Rocky','Moka']),since:S.age};fx({bonheur:7});return `Tes parents craquent. Bienvenue à ${S.flags.pet.name} !`;}fx({bonheur:-3});return 'Tes parents refusent. Le chiot part à la SPA.';}),
+ C('Le laisser partir',()=>(fx({bonheur:-1}),'Il s’éloigne en remuant la queue.')),
+]});
+E('adieupet',8,99,.35,{icon:'🕯️',title:'Un ami à quatre pattes',cond:()=>S.flags.pet&&S.age-S.flags.pet.since>=11,text:()=>`${S.flags.pet.name} est devenu très vieux et s’est endormi pour toujours.`,c:[
+ C('Lui dire au revoir',()=>{const n=S.flags.pet.name;S.flags.pet=null;fx({bonheur:-8});return `Tu n’oublieras jamais ${n}.`;}),
+]});
+E('dessin',6,12,.15,{icon:'🎨',title:'Concours de dessin',text:()=>'L’école organise un concours de dessin. Le gagnant sera exposé à la mairie.',c:[
+ C('Participer',()=>chance(.35)?(fx({bonheur:6,charme:2}),'Premier prix ! Ton dessin est affiché à la mairie.'):(fx({bonheur:-1}),'Pas de prix cette fois, mais tu t’es bien amusé'+g('','e')+'.')),
+ C('Non merci',()=>'Tu préfères jouer dehors.'),
+]});
+E('copain',5,16,.3,{icon:'👋',title:'Nouvel élève',text:()=>'Un nouvel élève arrive dans ta classe et ne connaît personne.',c:[
+ C('Aller lui parler',()=>{const f=addFriend();fx({bonheur:3,charme:1});return `Tu deviens ami${g('','e')} avec ${first(f)}.`;}),
+ C('Rester avec ta bande',()=>'Chacun reste de son côté.'),
+]});
+E('varicelle',2,10,.1,{icon:'🤒',title:'La varicelle',once:true,text:()=>'Tu as attrapé la varicelle. Ça gratte énormément.',c:[
+ C('Te gratter quand même',()=>(fx({charme:-3,sante:-2}),'Tu garderas quelques petites cicatrices.')),
+ C('Être sage',()=>(fx({sante:-1}),'Une semaine pénible, mais aucune trace.')),
+]});
+E('billet',6,17,.12,{icon:'💶',title:'Trouvaille',text:()=>'Tu trouves un billet de 20 € par terre près de l’école.',c:[
+ C('Le garder',()=>(fx({money:20,bonheur:2}),'Bonbons pour toute la semaine.')),
+ C('Le rapporter',()=>(fx({charme:2,bonheur:1}),'Le directeur te félicite devant la classe.')),
+]});
+E('cadeau',3,12,.2,{icon:'🎁',title:'Ton anniversaire',text:()=>'Tes parents te laissent choisir ton cadeau.',c:[
+ C('Un gros jouet',()=>(fx({bonheur:5}),'Tu ne le lâches plus.')),
+ C('Une encyclopédie',()=>(fx({intel:4,bonheur:1}),'Tu la dévores en un mois.')),
+ C('Un ballon',()=>(fx({sante:3,bonheur:2}),'Tu passes tes après-midi au parc.')),
+]});
+E('club',11,14,.6,{icon:'⚽',title:'Activité du mercredi',once:true,text:()=>'Tes parents veulent t’inscrire à une activité extrascolaire.',c:[
+ C('Le foot',()=>(fx({sante:6,charme:1}),'Tu deviens un pilier de l’équipe.')),
+ C('Le théâtre',()=>(fx({charme:6}),'Tu prends confiance sur scène.')),
+ C('Les échecs',()=>(fx({intel:6}),'Tu bats ton prof au bout de six mois.')),
+ C('Le piano',()=>(fx({intel:2,bonheur:4}),'Tu joues ton premier morceau au spectacle de fin d’année.')),
+]});
+E('bulletin',8,17,.2,{icon:'📄',title:'Bulletin scolaire',text:()=>S.stats.intel>=55?'Ton bulletin est excellent.':'Ton bulletin est… décevant.',c:[
+ C('Le montrer à tes parents',()=>{const good=S.stats.intel>=55;parents().forEach(p=>p.rel=clamp(p.rel+(good?6:-4)));fx({bonheur:good?3:-2});return good?'Tes parents sont fiers de toi.':'Tes parents te privent de console un mois.';}),
+ C('Le cacher',()=>{if(chance(.5)){fx({bonheur:1});return 'Personne ne s’en rend compte.';}parents().forEach(p=>p.rel=clamp(p.rel-12));fx({bonheur:-5});return 'Démasqué'+g('','e')+' ! Tes parents sont furieux.';}),
+]});
+E('soiree',14,17,.25,{icon:'🎉',title:'Soirée chez un pote',text:()=>'À une soirée, on te propose de l’alcool pour la première fois.',c:[
+ C('Accepter',()=>{fx({bonheur:4,sante:-3});if(chance(.3)){parents().forEach(p=>p.rel=clamp(p.rel-12));fx({bonheur:-3});return 'Super soirée… mais tes parents l’apprennent.';}return 'Tu passes une super soirée.';}),
+ C('Refuser poliment',()=>(fx({sante:1}),'Tu t’amuses aussi bien sans.')),
+]});
+E('controle',11,17,.3,{icon:'📐',title:'Contrôle de maths',text:()=>'Contrôle surprise demain, et tu n’as rien révisé.',c:[
+ C('Réviser toute la nuit',()=>(fx({intel:3,sante:-1,bonheur:-1}),'Tu as 16/20. Ça valait le coup.')),
+ C('Tricher',()=>chance(.55)?(fx({bonheur:2}),'Personne n’a rien vu.'):(fx({bonheur:-5}),'Pris'+g('','e')+' sur le fait : zéro et convocation des parents.')),
+ C('Improviser',()=>S.stats.intel>=55?(fx({bonheur:2}),'Tu t’en sors avec un 13.'):(fx({bonheur:-3}),'Un 4/20. Aïe.')),
+]});
+E('jobete',15,17,.3,{icon:'🍦',title:'Petit job d’été',text:()=>'Le glacier du quartier cherche quelqu’un pour l’été.',c:[
+ C('Accepter',()=>(fx({money:R(600,1000),charme:1,bonheur:-1}),'Ton premier vrai salaire !')),
+ C('Profiter des vacances',()=>(fx({bonheur:4}),'Un été de liberté.')),
+]});
+E('reseaux',12,17,.15,{icon:'📱',title:'Moqueries en ligne',text:()=>'Des élèves se moquent de toi dans un groupe de discussion.',c:[
+ C('En parler à un adulte',()=>(fx({bonheur:1}),'Les moqueries s’arrêtent rapidement.')),
+ C('Répondre avec humour',()=>chance(S.stats.charme/100)?(fx({charme:4,bonheur:2}),'Ta réponse fait rire tout le monde. Tu as retourné la situation.'):(fx({bonheur:-4}),'Ça empire. Tu aurais dû en parler.')),
+ C('Ignorer',()=>(fx({bonheur:-4}),'Ça te pèse plus que tu ne le pensais.')),
+]});
+E('permis',18,26,.35,{icon:'🚗',title:'Le permis de conduire',cond:()=>!S.flags.permis,text:()=>'Tu peux passer ton permis. Ça coûte environ 1 200 €.',c:[
+ C('S’inscrire',()=>{fx({money:-1200});if(chance(.6+S.stats.intel/300)){S.flags.permis=true;fx({bonheur:5});return 'Permis en poche du premier coup !';}fx({bonheur:-4});return 'Recalé'+g('','e')+'. Tu retenteras plus tard.';}),
+ C('Plus tard',()=>'Les transports en commun, c’est bien aussi.'),
+]});
+E('bar',18,55,.28,{icon:'🍸',title:'Un regard dans un bar',cond:()=>!partner(),text:()=>'Quelqu’un te sourit depuis l’autre bout du bar.',c:[
+ C('Engager la conversation',()=>{if(chance(S.stats.charme/110+.1)){const p=addPartner();fx({bonheur:6});return `Vous échangez vos numéros. ${first(p)} et toi commencez à vous voir.`;}fx({bonheur:-3});return 'Ça ne colle pas. Tant pis.';}),
+ C('Rester avec tes amis',()=>(fx({bonheur:1}),'Une bonne soirée entre amis.')),
+]});
+E('toxique',18,64,.15,{icon:'😤',title:'Collègue toxique',cond:()=>!!S.job,text:()=>'Un collègue s’attribue ton travail en réunion.',c:[
+ C('Le confronter',()=>chance(.5)?(S.job.perf=clamp(S.job.perf+6),fx({bonheur:3,charme:1}),'Ton manager te donne raison.'):(S.job.perf=clamp(S.job.perf-10),fx({bonheur:-3}),'Ça tourne au conflit, et c’est toi qu’on blâme.')),
+ C('Prévenir les RH',()=>(S.job.perf=clamp(S.job.perf+2),fx({bonheur:2}),'Les RH recadrent ton collègue.')),
+ C('Laisser couler',()=>(fx({bonheur:-4}),'Ça te reste en travers de la gorge.')),
+]});
+E('chasseur',22,60,.12,{icon:'📞',title:'Un chasseur de têtes',cond:()=>!!S.job&&!jd(S.job.id).random&&S.stats.intel>=45,text:()=>'Une entreprise concurrente veut te recruter avec un meilleur salaire.',c:[
+ C('Accepter l’offre',()=>{S.job.mult*=1.25;S.job.perf=50;fx({bonheur:4});return 'Nouveau bureau, salaire +25 %.';}),
+ C('Négocier avec ton patron',()=>chance(.5)?(S.job.mult*=1.1,fx({bonheur:3}),'Ton patron t’augmente de 10 % pour te garder.'):(S.job.perf=clamp(S.job.perf-8),fx({bonheur:-2}),'Ton patron le prend mal.')),
+ C('Refuser',()=>'Tu restes fidèle à ton entreprise.'),
+]});
+E('loto',18,99,.18,{icon:'🎟️',title:'Le Loto',text:()=>'La cagnotte du Loto atteint 2 millions d’euros ce soir.',c:[
+ C('Jouer une grille (2 €)',()=>{fx({money:-2});const r=Math.random()-S.luck/20;if(r<.002){fx({money:2000000,bonheur:20});return '🤯 INCROYABLE ! Tu remportes le jackpot de 2 000 000 € !';}if(r<.03){const w=R(500,20000);fx({money:w,bonheur:5});return `Tu as 4 bons numéros : ${fmt(w)} !`;}return 'Perdu. Ce sera pour une autre fois.';}),
+ C('Ne pas jouer',()=>'Tu gardes tes 2 €.'),
+]});
+E('crypto',20,60,.12,{icon:'🪙',title:'Le tuyau d’un ami',cond:()=>S.money>=4000,text:()=>'Un ami te jure qu’une nouvelle cryptomonnaie va exploser.',c:[
+ C('Investir la moitié de ton épargne',()=>{const m=Math.round(S.money/2);if(chance(.38)){const x=R(2,5);fx({money:m*(x-1),bonheur:8});return `Elle a été multipliée par ${x} !`;}fx({money:-Math.round(m*.8),bonheur:-7});return 'Elle s’effondre. Tu perds presque tout.';}),
+ C('Refuser',()=>'Tu préfères ton livret A.'),
+]});
+E('accident',18,85,.06,{icon:'🚑',title:'Accident',text:()=>'Tu as un accident de vélo en rentrant chez toi.',c:[
+ C('Aller aux urgences',()=>(fx({money:-R(200,600),sante:-R(3,7)}),'Quelques points de suture, plus de peur que de mal.')),
+ C('Rentrer et serrer les dents',()=>(fx({sante:-R(10,18)}),'C’était une fracture. Tu as mal pendant des semaines.')),
+]});
+E('grippe',3,99,.12,{icon:'🤧',title:'Grosse grippe',text:()=>'Tu as de la fièvre et le nez qui coule.',c:[
+ C('Rester au lit',()=>(fx({bonheur:-1}),'Une semaine sous la couette et tu es sur pied.')),
+ C('Continuer comme si de rien n’était',()=>{fx({sante:-6});if(S.job)S.job.perf=clamp(S.job.perf+4);return 'Tu tiens bon, mais tu mets un mois à t’en remettre.';}),
+]});
+E('emmenager',18,60,.35,{icon:'🏠',title:'Vivre ensemble ?',cond:()=>{const p=partner();return p&&p.type==='partenaire'&&p.rel>=50&&!S.flags.cohab;},text:()=>`${first(partner())} te propose d’emménager ensemble.`,c:[
+ C('Oui !',()=>{S.flags.cohab=true;partner().rel=clamp(partner().rel+10);fx({bonheur:5});return 'Vous trouvez un petit appartement à deux.';}),
+ C('Pas encore',()=>{partner().rel=clamp(partner().rel-12);return `${first(partner())} est déçu${partner().sx==='f'?'e':''}.`;}),
+]});
+E('demande',22,70,.28,{icon:'💍',title:'La grande question',cond:()=>{const p=partner();return p&&p.type==='partenaire'&&p.rel>=65&&S.flags.cohab;},text:()=>`${first(partner())} pose un genou à terre et te demande en mariage !`,c:[
+ C('Oui, mille fois oui',()=>marry()),
+ C('Non…',()=>{const p=partner();p.rel=clamp(p.rel-35);fx({bonheur:-5});if(chance(.5)){p.ex=true;S.flags.cohab=false;return `${first(p)} n’arrive pas à l’encaisser et te quitte.`;}return 'L’ambiance est glaciale pendant des mois.';}),
+]});
+E('bebe',22,42,.1,{icon:'🍼',title:'Une surprise',cond:()=>!!partner(),text:()=>'Surprise : un bébé est en route !',c:[
+ C('Quelle joie !',()=>{const k=addKid();fx({bonheur:8});return `Bienvenue à ${first(k)} !`;}),
+]});
+E('burnout',22,64,.6,{icon:'🔥',title:'Épuisement',cond:()=>!!S.job&&S.stats.bonheur<35,text:()=>'Tu n’arrives plus à te lever le matin. Ton médecin parle de burn-out.',c:[
+ C('Prendre un arrêt',()=>{S.job.perf=clamp(S.job.perf-15);fx({bonheur:10,sante:4});return 'Trois mois de repos. Tu revis.';}),
+ C('Tenir bon',()=>{S.job.perf=clamp(S.job.perf+4);fx({sante:-9,bonheur:-3});return 'Tu tiens, mais à quel prix…';}),
+]});
+E('quarantaine',40,52,.2,{icon:'🏎️',title:'Crise de la quarantaine',once:true,text:()=>'Tu as l’impression que la vie te file entre les doigts.',c:[
+ C('Acheter une voiture de sport (45 000 €)',()=>(fx({money:-45000,bonheur:8,charme:3}),'Elle est rouge et fait beaucoup de bruit.'),()=>S.money>=45000),
+ C('Tout plaquer et voyager',()=>{if(S.job){S.job=null;}S.flags.trips++;fx({money:-5000,bonheur:12});return 'Six mois sac à dos en Amérique du Sud. Tu reviens transformé'+g('','e')+'.';}),
+ C('Ne rien changer',()=>(fx({bonheur:-2}),'Ça finit par passer.')),
+]});
+E('pret',22,70,.12,{icon:'🤝',title:'Un ami dans le besoin',cond:()=>S.money>=2000&&friends().length>0,text:()=>`${first(friends()[0])} te demande de lui prêter 1 500 €.`,c:[
+ C('Prêter l’argent',()=>{const f=friends()[0];if(chance(.55)){f.rel=clamp(f.rel+15);return `${first(f)} te rembourse rubis sur l’ongle.`;}fx({money:-1500});f.rel=clamp(f.rel-20);return 'Tu ne revois jamais ton argent.';}),
+ C('Refuser',()=>{const f=friends()[0];f.rel=clamp(f.rel-15);return `${first(f)} t’en veut un peu.`;}),
+]});
+E('examens',50,99,.18,{icon:'🩺',title:'Bilan de santé',text:()=>'Ton médecin te conseille de faire un bilan complet.',c:[
+ C('Faire les examens',()=>(fx({money:-300,sante:R(3,8)}),'On détecte un petit souci à temps. Bien joué.')),
+ C('Ça peut attendre',()=>chance(.65)?'Rien de grave, cette fois.':(fx({sante:-R(15,25)}),'Le souci s’aggrave. Tu aurais dû y aller.')),
+]});
+E('petitenfant',55,99,.15,{icon:'👶',title:'Grand-parent',cond:()=>S.rel.some(r=>r.type==='enfant'&&r.alive&&r.age>=22),text:()=>'Un de tes enfants t’annonce que tu vas être '+g('grand-père','grand-mère')+' !',c:[
+ C('Fondre de bonheur',()=>(fx({bonheur:7}),'Tu achètes déjà des petits chaussons.')),
+]});
+E('startup',24,50,.1,{icon:'🚀',title:'Une idée de génie',cond:()=>S.stats.intel>=55&&S.money>=10000&&!S.flags.startupDone,text:()=>'Tu as une idée d’application. Lancer ta boîte coûterait 10 000 €.',c:[
+ C('Se lancer',()=>{S.flags.startupDone=true;fx({money:-10000});if(chance(.2)){const w=R(300000,1500000);S.flags.startupWin=true;fx({money:w,bonheur:15});return `Un géant de la tech rachète ta boîte pour ${fmt(w)} !`;}if(chance(.4)){fx({money:R(15000,60000),bonheur:4});return 'La boîte marche correctement. Tu la revends avec un joli bénéfice.';}fx({bonheur:-8});return 'Après deux ans de galère, la boîte coule.';}),
+ C('Garder l’idée pour toi',()=>'Tu la verras un jour sur l’App Store, faite par quelqu’un d’autre.'),
+]});
+E('voisin',18,99,.12,{icon:'🔊',title:'Voisin bruyant',text:()=>'Ton voisin fait la fête jusqu’à 4 h du matin.',c:[
+ C('Aller lui parler',()=>chance(S.stats.charme/100+.2)?(fx({charme:2,bonheur:2}),'Il s’excuse et t’invite à la prochaine.'):(fx({bonheur:-3}),'Il te claque la porte au nez.')),
+ C('Monter le son à ton tour',()=>(fx({bonheur:2,charme:-2}),'Guerre des décibels dans l’immeuble.')),
+ C('Mettre des bouchons',()=>(fx({sante:-1}),'Tu dors mal, mais tu évites le conflit.')),
+]});
+E('marathon',20,65,.12,{icon:'🏃',title:'Le marathon',text:()=>'Le marathon de ta ville ouvre les inscriptions.',c:[
+ C('S’inscrire',()=>S.stats.sante>=60?(fx({bonheur:6,sante:3,charme:1}),'Tu franchis la ligne d’arrivée en pleurant de joie.'):(fx({bonheur:-2,sante:-2}),'Abandon au 25e kilomètre.')),
+ C('Regarder depuis le canapé',()=>'Les autres courent pour toi.'),
+]});
+E('rupture',18,85,.4,{icon:'💔',title:'Ça ne va plus',cond:()=>{const p=partner();return p&&p.rel<30;},text:()=>`${first(partner())} veut mettre fin à votre relation.`,c:[
+ C('Tout faire pour la sauver',()=>{const p=partner();if(chance(S.stats.charme/120+.15)){p.rel=clamp(p.rel+25);fx({bonheur:2});return 'Vous repartez sur de bonnes bases.';}return breakUp(p,'Rien n’y fait. C’est fini.');}),
+ C('Laisser partir',()=>breakUp(partner(),'Vous vous séparez calmement.')),
+]});
+E('oncle',25,70,.03,{icon:'✉️',title:'Une lettre du notaire',once:true,text:()=>'Un grand-oncle que tu n’as jamais rencontré t’a laissé quelque chose.',c:[
+ C('Ouvrir la lettre',()=>{const h=R(10000,120000);fx({money:h,bonheur:5});return `Tu hérites de ${fmt(h)} !`;}),
+]});
+/* Événements de parcours (jamais tirés au hasard) */
+E('bac',0,0,0,{icon:'🎓',title:'Résultats du bac',text:()=>'Le jour J est arrivé. Les résultats sont affichés devant le lycée.',c:[
+ C('Regarder la liste',()=>{if(S.stats.intel+R(-15,15)>=38){S.edu=1;S.school=null;S.queue.unshift('orientation');fx({bonheur:8});return 'Ton nom est sur la liste. Bac en poche !';}S.queue.unshift('bacrate');fx({bonheur:-8});return 'Ton nom n’y est pas. Tu as raté le bac.';}),
+]});
+E('bacrate',0,0,0,{icon:'📚',title:'Et maintenant ?',text:()=>'Tu as raté le bac. Que fais-tu ?',c:[
+ C('Redoubler et le repasser',()=>{S.flags.redouble=true;return 'Tu retournes au lycée. Cette fois, tu vas réviser !';}),
+ C('Entrer dans la vie active',()=>{S.school=null;return 'Tu vas chercher du travail dès maintenant (onglet Carrière).';}),
+]});
+E('orientation',0,0,0,{icon:'🧭',title:'Orientation',text:()=>'Bac en poche, que fais-tu maintenant ?',c:[
+ C('Licence à la fac (3 ans)',()=>{startStudy('licence');return 'Tu t’inscris à la fac.';}),
+ C('Études de médecine (9 ans)',()=>{startStudy('medecine');return 'Tu te lances dans médecine. Accroche-toi !';},()=>S.stats.intel>=60),
+ C('Travailler tout de suite',()=>'Direction la vie active (onglet Carrière).'),
+ C('Une année de voyage',()=>{S.flags.trips++;fx({bonheur:8,sante:2,money:-1500});return 'Un an autour du monde. Tu pourras reprendre des études depuis l’onglet Carrière.';}),
+]});
+E('suitelicence',0,0,0,{icon:'🎓',title:'Licence validée !',text:()=>'Tu as ta licence. Tu continues ?',c:[
+ C('Faire un master (2 ans)',()=>{startStudy('master');return 'C’est reparti pour deux ans.';}),
+ C('Chercher un emploi',()=>'Tu peux postuler à de nouveaux métiers.'),
+]});
+E('suitemaster',0,0,0,{icon:'🎓',title:'Master validé !',text:()=>'Tu as ton master. Tu continues jusqu’au doctorat ?',c:[
+ C('Faire un doctorat (3 ans)',()=>{startStudy('doctorat');return 'Tu commences ta thèse.';},()=>S.stats.intel>=65),
+ C('Chercher un emploi',()=>'Tu as accès aux métiers les mieux payés.'),
+]});
+
+function marry(){const p=partner();p.type='conjoint';p.rel=clamp(p.rel+15);S.flags.married=true;S.flags.marriedAt=S.age;S.flags.cohab=true;fx({money:-R(5000,15000),bonheur:10});return `Vous vous mariez entourés de vos proches. ${first(p)} et toi, pour la vie.`;}
+function breakUp(p,msg){if(!p)return msg;let extra='';if(p.type==='conjoint'&&S.money>0){const l=Math.round(S.money*.4);fx({money:-l});extra=` Le divorce te coûte ${fmt(l)}.`;S.flags.married=false;}p.ex=true;S.flags.cohab=false;fx({bonheur:-7});return msg+extra;}
+const STUDY={licence:{t:'Licence',y:3,edu:2},master:{t:'Master',y:2,edu:3},doctorat:{t:'Doctorat',y:3,edu:4},medecine:{t:'Médecine',y:9,edu:5}};
+function startStudy(type){S.study={type,left:STUDY[type].y};S.school=null;if(S.job)S.job=null;}
+
+/* ---------- Activités ---------- */
+const ACTS=[
+ {id:'etude',t:'Étudier',d:'Devoirs et révisions',min:6,cond:()=>!!(S.school&&S.age>=6)||!!S.study,f:()=>{S.yr.etude++;fx({intel:R(2,4),bonheur:-R(0,2)});return 'Tu as bûché sérieusement.';}},
+ {id:'lire',t:'Lire un livre',d:'Roman, BD ou essai',min:6,f:()=>{S.yr.lire++;fx({intel:R(1,3),bonheur:1});return pick(['Tu as dévoré un polar.','Tu as lu un livre d’histoire passionnant.','Tu as fini une saga entière.']);}},
+ {id:'sport',t:'Faire du sport',d:'Course, natation, muscu',min:5,f:()=>{S.yr.sport++;fx({sante:R(2,5),charme:R(0,2)});return 'Ça fait du bien de se dépenser.';}},
+ {id:'jeux',t:'Jeux vidéo',d:'Une bonne session',min:6,f:()=>{fx({bonheur:R(2,4),sante:-R(0,1)});return pick(['Tu as fini un jeu en une nuit.','Victoire en classée !','Tu as découvert un nouveau jeu génial.']);}},
+ {id:'medit',t:'Méditer',d:'Calme et respiration',min:12,f:()=>{S.yr.medit++;fx({bonheur:R(2,4),sante:1});return 'Tu te sens apaisé'+g('','e')+'.';}},
+ {id:'fete',t:'Faire la fête',d:'Sortir avec des amis',min:15,cost:()=>S.age>=18?60:0,f:()=>{S.yr.fete++;if(S.age>=18)fx({money:-60});fx({bonheur:R(3,6),sante:-R(1,3)});if(S.age>=18&&!partner()&&chance(.12+S.stats.charme/400)){const p=addPartner();return `Soirée mémorable : tu rencontres ${first(p)} !`;}return 'Une soirée mémorable.';}},
+ {id:'benevolat',t:'Bénévolat',d:'Aider une association',min:14,f:()=>{fx({bonheur:R(2,4),charme:R(1,3)});return 'Tu as aidé à la banque alimentaire.';}},
+ {id:'rencontre',t:'Rencontrer quelqu’un',d:'Appli ou soirée célibataires',min:18,cond:()=>!partner(),f:()=>{if(chance(S.stats.charme/120+.15)){const p=addPartner();fx({bonheur:5});return `Ça matche avec ${first(p)} ! Vous commencez à vous voir.`;}fx({bonheur:-2});return 'Que des rendez-vous ratés cette fois.';}},
+ {id:'medecin',t:'Voir un médecin',d:'Consultation et soins',min:3,cost:()=>S.age>=18?60:0,f:()=>{if(S.age>=18)fx({money:-60});fx({sante:R(4,8)});return 'Le médecin te remet sur pied.';}},
+ {id:'coach',t:'Coach & spa',d:'Prendre soin de soi',min:18,cost:()=>800,f:()=>{fx({money:-800,sante:R(3,6),charme:R(3,5)});return 'Tu te sens au top.';}},
+ {id:'voyage',t:'Partir en voyage',d:'Changer d’air',min:18,cost:()=>2000,f:()=>{const dest=pick(['au Japon','en Islande','au Mexique','en Italie','au Maroc','en Thaïlande','au Canada','au Pérou','en Grèce','en Écosse']);S.flags.trips++;fx({money:-2000,bonheur:R(6,10)});return `Voyage inoubliable ${dest}.`;}},
+ {id:'casino',t:'Casino',d:'Miser 500 €',min:18,cost:()=>500,f:()=>{const r=Math.random()-S.luck;if(r<.03){fx({money:9500,bonheur:12});return 'JACKPOT ! Tu gagnes 10 000 € !';}if(r<.45){fx({money:500,bonheur:4});return 'Tu doubles ta mise !';}fx({money:-500,bonheur:-3});return 'La banque gagne toujours…';}},
+ {id:'enfant',t:'Avoir un enfant',d:'Agrandir la famille',min:20,max:45,cond:()=>!!partner(),f:()=>{if(chance(.6)){const k=addKid();fx({bonheur:8});return `Naissance de ${first(k)} ! Tu es aux anges.`;}fx({bonheur:-2});return 'Ça n’a pas marché cette année.';}},
+];
+
+/* ---------- Cycle de vie ---------- */
+function newLife(o){
+  const st={bonheur:R(55,80),sante:R(62,90),intel:R(25,68),charme:R(25,68)};
+  S={first:o.first,last:o.last,sex:o.sex,attr:o.attr,city:pick(VILLES),age:0,alive:true,stats:st,money:0,energy:0,
+    job:null,retired:false,pension:0,edu:0,school:'crèche',study:null,rel:[],log:[],queue:[],won:[],starsEarned:0,
+    challenge:o.challenge,perks:o.perks,luck:o.perks.includes('lucky')?.08:0,
+    flags:{trips:0,everWorked:false,married:false,kids:0,pet:null},yr:{},talked:{},applied:{},obj:null,yrStartMoney:0};
+  if(o.perks.includes('genius'))st.intel=clamp(st.intel+25);
+  if(o.perks.includes('charm'))st.charme=clamp(st.charme+25);
+  if(o.perks.includes('iron'))st.sante=clamp(st.sante+15);
+  const mom=person('mère','f',R(24,38),R(70,90),S.last), dad=person('père','m',R(25,40),R(65,90),S.last);
+  S.rel.push(mom,dad);
+  if(Math.random()<.5){const s=person('fratrie',pick(['m','f']),R(2,8),R(50,75),S.last);S.rel.push(s);}
+  log(`Tu es né${g('','e')} à ${S.city}. Tes parents s’appellent ${first(mom)} et ${first(dad)}.`);
+  const ch=trophyById(S.challenge);
+  if(ch)log(`🎯 Défi de cette vie : ${ch.t} — ${ch.d}.`);
+  newYear();
+}
+function newYear(){
+  const a=S.age;
+  S.energy=a<3?0:a<6?2:4;
+  S.yr={sport:0,etude:0,lire:0,fete:0,social:0,bosse:0,medit:0};
+  S.yrStartMoney=S.money;S.talked={};S.applied={};CONFIRM=null;
+  const pool=OBJ.filter(o=>a>=o.min&&(!o.cond||o.cond()));
+  S.obj=a>=3&&pool.length?pick(pool).id:null;
+}
+function pickEvents(){
+  const el=Object.values(EV).filter(e=>e.p>0&&S.age>=e.min&&S.age<=e.max&&!(e.once&&S.flags['ev_'+e.id])&&(!e.cond||e.cond()));
+  el.sort(()=>Math.random()-.5);
+  const out=[];
+  for(const e of el){if(out.length>=2)break;if(Math.random()<e.p){out.push(e.id);if(e.once)S.flags['ev_'+e.id]=true;}}
+  return out;
+}
+
+function ageUp(){
+  if(!S||!S.alive)return;
+  const msgs=[];
+  // objectif
+  const ob=OBJ.find(o=>o.id===S.obj);
+  if(ob&&ob.ok()){CUR=[];M.stars++;S.starsEarned++;fx({bonheur:2});log(`🎯 Objectif réussi : ${ob.t} (+1 ★)`,CUR);toast('Objectif réussi ! +1 ★',CUR);}
+  S.age++;const a=S.age;
+  CUR=[];
+  // vieillissement
+  let dec=a>=80?R(2,4):a>=65?R(1,3):a>=45?R(0,2):0;if(S.perks.includes('iron'))dec=Math.floor(dec/2);
+  if(dec)fx({sante:-dec});
+  if(a>=18&&S.stats.bonheur<50&&partner()&&partner().rel>60)fx({bonheur:2});
+  const ageD=CUR.slice();
+  log(a===1?'Tu as 1 an. Tu fais tes premiers pas.':`Tu as ${a} ans.`,ageD);
+  // proches
+  S.rel.forEach(r=>{
+    if(!r.alive||r.ex)return;r.age++;r.rel=clamp(r.rel-R(1,4));
+    if(r.type!=='enfant'&&r.age>68&&Math.random()<((r.age-62)/42)**3){
+      r.alive=false;r.deadAt=r.age;CUR=[];fx({bonheur:-R(7,14)});let t=`${relLabel(r)} — ${first(r)} est décédé${r.sx==='f'?'e':''} à ${r.age} ans.`;
+      if((r.type==='mère'||r.type==='père')&&a>=18){const h=S.perks.includes('rich')?R(40000,150000):R(0,25000);if(h){fx({money:h});t+=` Tu hérites de ${fmt(h)}.`;}}
+      if(r.type==='conjoint'||r.type==='partenaire')S.flags.cohab=false;
+      log('🕯️ '+t,CUR);
+    }else if(r.type==='ami'&&r.rel<=5){r.alive=false;r.lost=true;log(`Tu as perdu de vue ${first(r)}.`);}
+    if(r.type==='enfant'&&r.age===18)log(`🎒 ${first(r)} quitte la maison pour faire sa vie.`);
+  });
+  const p=partner();if(p&&p.rel<12&&chance(.5)){CUR=[];log('💔 '+breakUp(p,`${first(p)} te quitte. Vous ne vous parliez plus.`),CUR);}
+  // école
+  if(a===3)S.school='maternelle';
+  if(a===6){S.school='primaire';log('🎒 Ta première rentrée à l’école primaire.');}
+  if(a===11){S.school='collège';log('🎒 Tu entres au collège.');}
+  if(a===15){S.school='lycée';log('🎒 Tu entres au lycée.');}
+  if(a===18&&S.edu===0)S.queue.push('bac');
+  if(a===19&&S.flags.redouble){S.flags.redouble=false;S.queue.push('bac');}
+  if(a===18&&S.perks.includes('rich')){CUR=[];fx({money:40000});log('💰 Tes parents te versent 40 000 € pour tes 18 ans.',CUR);}
+  if(a===18&&S.school&&S.edu===0&&!S.queue.includes('bac'))S.school=null;
+  // études
+  if(S.study){S.study.left--;if(S.study.left<=0){const st=STUDY[S.study.type];S.edu=st.edu;S.study=null;CUR=[];fx({bonheur:8,intel:3});log(`🎓 Diplôme obtenu : ${EDU[S.edu]} !`,CUR);
+    if(st.edu===2)S.queue.push('suitelicence');if(st.edu===3)S.queue.push('suitemaster');}}
+  // travail
+  let inc=0;
+  if(S.job){const j=S.job,d=jd(j.id);j.years++;j.yearsLv++;
+    j.perf=clamp(j.perf+R(-6,4)+(S.stats.intel>60?2:0));
+    if(d.random){j.lastInc=Math.round((S.stats.charme**2)*R(1,8)*LVM[j.level]*(chance(.1)?6:1));inc=Math.round(j.lastInc*.7);}
+    else inc=Math.round(salary()*.77);
+    if(j.level<4&&j.yearsLv>=2&&j.perf>=62&&chance(.4+(j.perf-62)/90)){j.level++;j.yearsLv=0;j.perf=55;CUR=[];fx({bonheur:6});log(`🎉 Promotion ! Te voilà ${jobTitle(j)}.`,CUR);}
+    else if(j.perf<18&&chance(.5)){CUR=[];fx({bonheur:-8});log(`📦 Tu es licencié${g('','e')} de ton poste de ${jobTitle(j)}.`,CUR);S.job=null;}
+  }
+  if(S.job&&a>=64){S.pension=Math.round(salary()*.6*.77);S.retired=true;CUR=[];fx({bonheur:6});log(`🌴 Tu prends ta retraite après ta carrière de ${jobTitle(S.job)}.`,CUR);S.job=null;}
+  // argent
+  if(a>=19){
+    if(!S.job){if(S.retired)inc=S.pension;else if(!S.study)inc=7000;else inc=4000;}
+    let exp=S.study?7000:(S.flags.cohab?10000:14000);
+    exp+=S.rel.filter(r=>r.type==='enfant'&&r.alive&&r.age<18).length*4000;
+    CUR=[];fx({money:inc-exp});
+    if(S.money<0)fx({bonheur:-3});
+    log(`💶 Bilan de l’année : +${fmt(inc)} de revenus, −${fmt(exp)} de dépenses.`,CUR);
+  }
+  // mort
+  if(checkDeath())return;
+  newYear();
+  S.queue.push(...pickEvents());
+  checkTrophies();save();render();runQueue();
+}
+function checkDeath(){
+  if(!S.alive)return true;
+  if(S.stats.sante<=0){die('Ta santé a fini par lâcher.');return true;}
+  const a=S.age;
+  if(a>=60){const pr=((a-60)/48)**3*(1.5-S.stats.sante/100);if(Math.random()<pr){die(a>=80?'Tu t’es éteint'+g('','e')+' paisiblement dans ton sommeil.':'Une maladie t’a emporté'+g('','e')+'.');return true;}}
+  if(a>=18&&Math.random()<.0015){die('Un accident tragique et inattendu.');return true;}
+  return false;
+}
+function score(){const s=S.stats;return Math.round(S.age*2+(s.bonheur+s.sante+s.intel+s.charme)/4+Math.max(0,S.money)/20000+S.won.length*50+S.flags.kids*10);}
+function die(cause){
+  checkTrophies();
+  S.alive=false;S.cause=cause;S.score=score();S.queue=[];
+  M.lives++;if(S.score>M.best)M.best=S.score;
+  log('⚰️ '+cause);
+  save();render();showDeath();
+}
+function checkTrophies(){
+  for(const t of TROPH){if(S.won.includes(t.id))continue;if(t.ok()){
+    S.won.push(t.id);let st=0;if(!M.trophies[t.id])st+=3;if(t.id===S.challenge)st+=10;
+    M.trophies[t.id]=true;M.stars+=st;S.starsEarned+=st;
+    log(`🏆 Trophée débloqué : ${t.t}${st?` (+${st} ★)`:''}`);toast(`🏆 ${t.t}${t.id===S.challenge?' — défi réussi !':''}`+(st?` +${st} ★`:''),[]);
+  }}
+}
+
+/* ---------- Affichage ---------- */
+function toast(t,d){const el=document.createElement('div');el.className='toast';el.innerHTML=esc(t)+(d&&d.length?`<div class="pills" style="margin-top:5px">${pills(d)}</div>`:'');$('#toasts').appendChild(el);setTimeout(()=>el.remove(),2600);}
+function statusLine(){
+  if(S.job)return jobTitle(S.job);
+  if(S.study)return `Étudiant${g('','e')} en ${STUDY[S.study.type].t.toLowerCase()} · encore ${S.study.left} an${S.study.left>1?'s':''}`;
+  if(S.school)return S.school==='crèche'?'Bébé':`Élève en ${S.school}`;
+  if(S.retired)return `Retraité${g('','e')}`;
+  return S.age<18?'':'Sans emploi';
+}
+function render(){
+  if(!S){$('#game').hidden=true;$('#dock').hidden=true;renderStart();$('#start').hidden=false;return;}
+  $('#start').hidden=true;$('#game').hidden=false;$('#dock').hidden=!S.alive;
+  $('#g-name').textContent=`${S.first} ${S.last}`;
+  $('#g-sub').textContent=[statusLine(),S.city].filter(Boolean).join(' · ');
+  $('#g-age').innerHTML=`${S.age}<small>an${S.age>1?'s':''}</small>`;
+  const mEl=$('#g-money');mEl.textContent=fmt(S.money);mEl.className='money'+(S.money<0?' neg':'');
+  $('#g-stats').innerHTML=Object.entries(STATS).map(([k,v])=>`<div class="stat"><div class="h"><span>${v.n}</span><span>${S.stats[k]}</span></div><div class="bar"><i style="width:${S.stats[k]}%;background:${v.c}"></i></div></div>`).join('');
+  const tabs=[['journal','Journal'],['activites','Activités'],['carriere','Carrière'],['proches','Proches'],['defis','Défis']];
+  $('#g-tabs').innerHTML=tabs.map(([k,t])=>`<button data-tab="${k}" class="${TAB===k?'on':''}">${t}</button>`).join('');
+  $('#panel').innerHTML=({journal:pJournal,activites:pActs,carriere:pCareer,proches:pRel,defis:pDefis})[TAB]();
+  const ob=OBJ.find(o=>o.id===S.obj);
+  const done=ob&&ob.ok();
+  $('#d-obj').className='obj'+(done?' ok':'');
+  $('#d-obj').innerHTML=ob?`Objectif : <b>${esc(ob.t)}</b>${done?' ✓':''}`:'Profite de ta petite enfance';
+  const mx=S.age<3?0:S.age<6?2:4;
+  $('#d-pips').innerHTML=Array.from({length:mx},(_,i)=>`<i class="${i<S.energy?'on':''}"></i>`).join('');
+}
+function pJournal(){
+  const by={};S.log.forEach(e=>{(by[e.a]=by[e.a]||[]).push(e);});
+  const ages=Object.keys(by).map(Number).sort((a,b)=>b-a).slice(0,30);
+  return ages.map(a=>`<div class="yr"><h3>${a} an${a>1?'s':''}</h3>${by[a].slice().reverse().map(e=>`<div class="entry"><div>${esc(e.t)}</div>${e.d&&e.d.length?`<div class="pills">${pills(e.d)}</div>`:''}</div>`).join('')}</div>`).join('');
+}
+function pActs(){
+  if(S.age<3)return '<p class="empty">Tu es encore un bébé. Appuie sur « Année suivante » pour grandir.</p>';
+  const list=ACTS.filter(x=>S.age>=x.min&&(!x.max||S.age<=x.max));
+  return `<p class="muted" style="margin:0 0 10px;font-size:13px">Chaque activité consomme 1 point d’énergie. Il te reste <b>${S.energy}</b> point${S.energy>1?'s':''} cette année.</p><div class="grid">`+
+    list.map(x=>{const c=x.cost?x.cost():0;const ok=S.energy>0&&(!x.cond||x.cond())&&(c<=0||S.money>=c);
+      return `<button class="act" data-act="${x.id}" ${ok?'':'disabled'}><span class="t">${x.t}</span><span class="d">${x.d}${c?` · ${fmt(c)}`:''}</span></button>`;}).join('')+'</div>';
+}
+function pCareer(){
+  let h='';
+  if(S.job){const j=S.job,d=jd(j.id);
+    h+=`<div class="card"><div class="label">Ton poste</div><h3>${jobTitle(j)}</h3>
+    <div class="kv"><span>Salaire annuel brut</span><span>${d.random?(j.lastInc?fmt(j.lastInc)+' (variable)':'Variable'):fmt(salary())}</span></div>
+    <div class="kv"><span>Ancienneté</span><span>${j.years} an${j.years>1?'s':''}</span></div>
+    <div><div class="kv"><span>Performance</span><span>${j.perf}/100</span></div><div class="bar" style="margin-top:6px"><i style="width:${j.perf}%;background:var(--accent)"></i></div></div>
+    <div class="mini"><button data-job="bosse" ${S.energy>0?'':'disabled'}>Travailler dur (1 énergie)</button><button data-job="augm" ${S.talked._augm||d.random?'disabled':''}>Demander une augmentation</button><button class="warn" data-job="quit">${CONFIRM==='quit'?'Confirmer la démission':'Démissionner'}</button></div></div>`;
+  }else if(S.retired){h+=`<div class="card"><div class="label">Retraite</div><h3>Tu profites de ta retraite</h3><div class="kv"><span>Pension annuelle nette</span><span>${fmt(S.pension)}</span></div></div>`;}
+  // études
+  h+=`<div class="sect"><div class="label">Études</div><div class="card"><div class="kv"><span>Diplôme le plus élevé</span><span>${EDU[S.edu]}</span></div>`;
+  if(S.study)h+=`<div class="kv"><span>En cours</span><span>${STUDY[S.study.type].t} · ${S.study.left} an${S.study.left>1?'s':''} restant${S.study.left>1?'s':''}</span></div>`;
+  else if(S.school)h+=`<div class="kv"><span>Scolarité</span><span>${S.school}</span></div>`;
+  else if(S.age>=19&&!S.retired&&S.age<45){const opts=[];
+    if(S.edu===1)opts.push(['licence','Licence (3 ans)']);if(S.edu===2)opts.push(['master','Master (2 ans)']);if(S.edu===3&&S.stats.intel>=65)opts.push(['doctorat','Doctorat (3 ans)']);
+    if(S.edu>=1&&S.edu<5&&S.stats.intel>=60&&S.age<30)opts.push(['medecine','Médecine (9 ans)']);
+    if(opts.length)h+=`<div class="muted" style="font-size:13px">Reprendre des études te fera quitter ton emploi.</div><div class="mini">${opts.map(([k,t])=>`<button data-study="${k}">${t}</button>`).join('')}</div>`;}
+  h+='</div></div>';
+  // offres
+  if(S.age>=18&&!S.retired&&S.age<64&&!S.study&&!(S.school&&S.edu===0&&S.age<19&&S.flags.redouble)){
+    h+=`<div class="sect"><div class="label">Offres d’emploi</div><div class="list">`+JOBS.filter(d=>!S.job||S.job.id!==d.id).map(d=>{
+      const req=[];if(d.edu)req.push(EDU[d.edu]);if(d.intel)req.push('Intel. '+d.intel);if(d.charme)req.push('Charme '+d.charme);
+      const ok=eduOK(d.edu)&&S.stats.intel>=(d.intel||0)&&S.stats.charme>=(d.charme||0);const tried=S.applied[d.id];
+      return `<button class="opt" data-apply="${d.id}" ${ok&&!tried?'':'disabled'}><div><div class="t">${S.sex==='f'?d.t[1]:d.t[0]}</div><div class="d">${req.length?req.join(' · '):'Aucun prérequis'}${tried?' · déjà tenté cette année':''}</div></div><span class="cost">${d.random?'Variable':fmt(d.sal)}</span></button>`;}).join('')+'</div></div>';
+  }else if(S.age<18)h+='<p class="empty">Tu pourras travailler à partir de 18 ans.</p>';
+  return h;
+}
+function pRel(){
+  const alive=S.rel.filter(r=>!r.ex&&!r.lost);
+  if(!alive.length)return '<p class="empty">Personne pour le moment.</p>';
+  const order=['conjoint','partenaire','enfant','mère','père','fratrie','ami'];
+  alive.sort((a,b)=>(b.alive-a.alive)||order.indexOf(a.type)-order.indexOf(b.type));
+  return '<div class="card" style="gap:0;padding-block:2px">'+alive.map(r=>{
+    if(!r.alive)return `<div class="person dead"><div class="n"><b>${esc(r.name)}</b><span class="muted">${relLabel(r)} · † ${r.deadAt} ans</span></div></div>`;
+    const t=S.talked[r.id];const btn=[];
+    if(S.age>=3)btn.push(`<button data-rel="temps" data-id="${r.id}" ${t?'disabled':''}>Passer du temps</button>`);
+    if((r.type==='mère'||r.type==='père')&&S.age>=16)btn.push(`<button data-rel="argent" data-id="${r.id}" ${t?'disabled':''}>Demander de l’argent</button>`);
+    if(S.age>=18&&r.type!=='enfant')btn.push(`<button data-rel="cadeau" data-id="${r.id}" ${t||S.money<200?'disabled':''}>Offrir un cadeau</button>`);
+    if(r.type==='partenaire')btn.push(`<button data-rel="mariage" data-id="${r.id}" ${t?'disabled':''}>Demander en mariage</button>`);
+    if(r.type==='partenaire'||r.type==='conjoint')btn.push(`<button class="warn" data-rel="rompre" data-id="${r.id}">${CONFIRM==='rompre'+r.id?'Confirmer':(r.type==='conjoint'?'Divorcer':'Rompre')}</button>`);
+    return `<div class="person"><div class="n"><b>${esc(r.name)}</b><span class="muted">${relLabel(r)} · ${r.age} an${r.age>1?'s':''}</span></div>
+      <div><div class="bar"><i style="width:${r.rel}%;background:var(--cha)"></i></div></div><div class="mini">${btn.join('')}</div></div>`;
+  }).join('')+'</div>';
+}
+function pDefis(){
+  const ch=trophyById(S.challenge);let h='';
+  if(ch){const done=S.won.includes(ch.id);const pr=Math.max(0,Math.min(1,ch.p()));
+    h+=`<div class="card"><div class="label">Défi de cette vie · +10 ★</div><h3>${ch.t}</h3><div class="muted">${ch.d}</div>${done?'<div style="color:var(--pos);font-weight:700">Défi réussi !</div>':`<div class="prog"><i style="width:${Math.round(pr*100)}%"></i></div>`}</div>`;}
+  h+=`<div class="meta" style="margin-top:14px"><span class="chip"><b>${M.stars}</b> ★ étoiles</span><span class="chip">${S.starsEarned} ★ gagnées dans cette vie</span></div>`;
+  h+=`<p class="muted" style="font-size:13px">Réussis l’objectif de l’année (+1 ★) et débloque des trophées (+3 ★ la première fois). Dépense tes étoiles en atouts au début de ta prochaine vie.</p>`;
+  h+='<div class="sect"><div class="label">Trophées</div><div class="list">'+TROPH.map(t=>{const now=S.won.includes(t.id),ever=M.trophies[t.id];
+    return `<div class="opt"><div><div class="t">${ever?'🏆 ':''}${t.t}</div><div class="d">${t.d}</div></div>${now?'<span class="done">Cette vie</span>':ever?'<span class="done">Obtenu</span>':''}</div>`;}).join('')+'</div></div>';
+  return h;
+}
+
+/* ---------- Modale d'événement ---------- */
+function openModal(html){$('#sheet').innerHTML=html;$('#modal').hidden=false;}
+function closeModal(){$('#modal').hidden=true;}
+function runQueue(){
+  if(!S||!S.alive)return;
+  if(!S.queue.length){closeModal();render();return;}
+  const e=EV[S.queue[0]];
+  if(!e||(e.cond&&!e.cond())){S.queue.shift();return runQueue();}
+  const ch=e.c.map((c,i)=>[c,i]).filter(([c])=>!c.cond||c.cond());
+  openModal(`<div class="ico">${e.icon}</div><div class="label">${S.age} an${S.age>1?'s':''}</div><h3>${e.title}</h3><p>${esc(e.text())}</p><div class="choices">${ch.map(([c,i])=>`<button class="choice" data-choice="${i}">${esc(c.t)}</button>`).join('')}</div>`);
+}
+function choose(i){
+  const e=EV[S.queue[0]];if(!e)return;
+  S.queue.shift();CUR=[];
+  const t=e.c[i].f();
+  log(e.icon+' '+t,CUR);
+  checkTrophies();save();
+  openModal(`<div class="ico">${e.icon}</div><h3>${e.title}</h3><p>${esc(t)}</p>${CUR.length?`<div class="pills">${pills(CUR)}</div>`:''}<button class="btn" id="m-next">Continuer</button>`);
+}
+function showDeath(){
+  const won=S.won.map(id=>trophyById(id).t);
+  const job=S.job?jobTitle(S.job):S.retired?'Retraité'+g('','e'):'—';
+  openModal(`<div class="label">Fin de vie · ${S.age} ans</div><h3>${esc(S.first)} ${esc(S.last)}</h3><p>${esc(S.cause)}</p>
+   <div class="big">${S.score}</div><div class="muted" style="margin-top:-8px">points${S.score>=M.best?' · nouveau record !':` · record : ${M.best}`}</div>
+   <div class="card" style="background:var(--surf2);border:0">
+    <div class="kv"><span>Fortune</span><span>${fmt(S.money)}</span></div>
+    <div class="kv"><span>Diplôme</span><span>${EDU[S.edu]}</span></div>
+    <div class="kv"><span>Dernier métier</span><span>${esc(job)}</span></div>
+    <div class="kv"><span>Enfants</span><span>${S.flags.kids}</span></div>
+    <div class="kv"><span>Voyages</span><span>${S.flags.trips}</span></div>
+    <div class="kv"><span>Trophées</span><span>${won.length?esc(won.join(', ')):'Aucun'}</span></div>
+    <div class="kv"><span>Étoiles gagnées</span><span>${S.starsEarned} ★</span></div>
+   </div>
+   <button class="btn" id="m-reborn">Commencer une nouvelle vie</button>
+   <button class="btn ghost" id="m-journal">Relire le journal</button>`);
+}
+
+/* ---------- Écran d'accueil ---------- */
+let ST={sex:'m',attr:'f',challenge:null,perks:[],first:'',last:''};
+function rollName(){ST.first=ST.sex==='f'?pick(PF):pick(PM);ST.last=pick(NOMS);}
+function renderStart(){
+  if(!ST.first)rollName();
+  const freeT=TROPH.filter(t=>!M.trophies[t.id]);
+  if(!ST.challenge)ST.challenge=(freeT.length?pick(freeT):pick(TROPH)).id;
+  const spent=ST.perks.reduce((s,id)=>s+PERKS.find(p=>p.id===id).cost,0);
+  $('#start').innerHTML=`
+  <div class="hero"><h1>Re<span>born</span></h1><div class="muted">Une vie, année après année. Chaque choix compte.</div>
+   <div class="meta"><span class="chip"><b>${M.stars}</b> ★</span><span class="chip">${M.lives} vie${M.lives>1?'s':''} jouée${M.lives>1?'s':''}</span><span class="chip">Record : ${M.best}</span><span class="chip">${Object.keys(M.trophies).length}/${TROPH.length} trophées</span></div></div>
+  <div class="block"><div class="label">Ton personnage</div>
+   <div class="field"><input id="s-first" value="${esc(ST.first)}" aria-label="Prénom"><input id="s-last" value="${esc(ST.last)}" aria-label="Nom"><button class="dice" id="s-roll" aria-label="Nom au hasard">Hasard</button></div>
+   <div class="seg" role="group" aria-label="Sexe"><button data-sex="m" class="${ST.sex==='m'?'on':''}">Garçon</button><button data-sex="f" class="${ST.sex==='f'?'on':''}">Fille</button></div>
+   <div class="label" style="margin-top:4px">Plus tard, attiré${ST.sex==='f'?'e':''} par</div>
+   <div class="seg" role="group"><button data-attr="m" class="${ST.attr==='m'?'on':''}">Les hommes</button><button data-attr="f" class="${ST.attr==='f'?'on':''}">Les femmes</button><button data-attr="both" class="${ST.attr==='both'?'on':''}">Les deux</button></div>
+  </div>
+  <div class="block"><div class="label">Défi de cette vie · +10 ★ si tu le réussis</div><div class="list">
+   ${TROPH.map(t=>`<button class="opt ${ST.challenge===t.id?'on':''}" data-ch="${t.id}"><div><div class="t">${t.t}</div><div class="d">${t.d}</div></div>${M.trophies[t.id]?'<span class="done">Déjà obtenu</span>':''}</button>`).join('')}
+  </div></div>
+  <div class="block"><div class="label">Atouts de naissance · ${M.stars-spent} ★ disponibles</div><div class="list">
+   ${PERKS.map(p=>{const on=ST.perks.includes(p.id);const can=on||M.stars-spent>=p.cost;return `<button class="opt ${on?'on':''}" data-perk="${p.id}" ${can?'':'disabled'}><div><div class="t">${p.t}</div><div class="d">${p.d}</div></div><span class="cost">${p.cost} ★</span></button>`;}).join('')}
+  </div>${M.stars===0?'<div class="muted" style="font-size:13px">Gagne des étoiles en réussissant tes objectifs annuels et tes trophées.</div>':''}</div>
+  <div class="block" style="margin-bottom:30px"><button class="btn" id="s-go">Naître</button></div>`;
+}
+
+/* ---------- Interactions ---------- */
+document.addEventListener('click',ev=>{
+  const b=ev.target.closest('button');if(!b||b.disabled)return;
+  const d=b.dataset;
+  // accueil
+  if(d.sex){ST.sex=d.sex;ST.attr=d.sex==='m'?'f':'m';rollName();return renderStart();}
+  if(d.attr){ST.attr=d.attr;return renderStart();}
+  if(d.ch){ST.challenge=d.ch;return renderStart();}
+  if(d.perk){const i=ST.perks.indexOf(d.perk);if(i>=0)ST.perks.splice(i,1);else ST.perks.push(d.perk);return renderStart();}
+  if(b.id==='s-roll'){rollName();return renderStart();}
+  if(b.id==='s-go'){
+    const fi=($('#s-first').value||'').trim()||ST.first, la=($('#s-last').value||'').trim()||ST.last;
+    const spent=ST.perks.reduce((s,id)=>s+PERKS.find(p=>p.id===id).cost,0);
+    if(spent>M.stars)return;M.stars-=spent;
+    newLife({first:fi.slice(0,20),last:la.slice(0,24),sex:ST.sex,attr:ST.attr,challenge:ST.challenge,perks:ST.perks.slice()});
+    ST={sex:ST.sex,attr:ST.attr,challenge:null,perks:[],first:'',last:''};TAB='journal';save();render();window.scrollTo(0,0);return;
+  }
+  // jeu
+  if(d.tab){TAB=d.tab;CONFIRM=null;return render();}
+  if(b.id==='d-year'){ageUp();return;}
+  if(b.id==='g-menu'){openModal(`<h3>Options</h3><p class="muted">Ta partie est sauvegardée automatiquement sur cet appareil.</p><button class="btn ghost" id="m-close">Reprendre</button><button class="btn ghost" id="m-abandon" style="color:var(--neg)">Abandonner cette vie</button>`);return;}
+  if(b.id==='m-close'){closeModal();return;}
+  if(b.id==='m-abandon'){b.id='m-abandon2';b.textContent='Confirmer : abandonner définitivement';return;}
+  if(b.id==='m-abandon2'){closeModal();S=null;save();render();return;}
+  if(d.choice!==undefined){choose(+d.choice);return;}
+  if(b.id==='m-next'){if(checkDeath())return;runQueue();return;}
+  if(b.id==='m-reborn'){S=null;save();closeModal();render();window.scrollTo(0,0);return;}
+  if(b.id==='m-journal'){closeModal();TAB='journal';render();$('#dock').hidden=true;showRebornBar();return;}
+  if(d.act){const a=ACTS.find(x=>x.id===d.act);if(!a||S.energy<=0)return;S.energy--;CUR=[];const t=a.f();log(t,CUR);toast(t,CUR);after();return;}
+  if(d.apply){applyJob(d.apply);return;}
+  if(d.study){startStudy(d.study);log(`🎓 Tu reprends des études : ${STUDY[d.study].t}.`);toast('Inscription validée',[]);after();return;}
+  if(d.job){jobAction(d.job);return;}
+  if(d.rel){relAction(d.rel,d.id);return;}
+});
+function after(){checkTrophies();save();render();if(S&&S.alive&&S.stats.sante<=0)die('Ta santé a fini par lâcher.');}
+function showRebornBar(){const el=document.createElement('div');el.className='sect';el.innerHTML='<button class="btn" id="m-reborn">Commencer une nouvelle vie</button>';$('#panel').prepend(el);}
+function applyJob(id){
+  const d=jd(id);S.applied[id]=true;CUR=[];
+  let p=d.random?(S.stats.charme-60)/60:.5+(S.stats.intel-(d.intel||0))/120+(S.stats.charme-50)/250;
+  if(chance(p)){S.job={id,level:0,perf:50,years:0,yearsLv:0,mult:1,lastInc:0};S.flags.everWorked=true;fx({bonheur:5});const t=`Embauché${g('','e')} ! Tu es maintenant ${jobTitle(S.job)}.`;log('💼 '+t,CUR);toast(t,CUR);}
+  else{fx({bonheur:-2});const t=`Candidature refusée pour le poste de ${S.sex==='f'?d.t[1]:d.t[0]}.`;log(t,CUR);toast(t,CUR);}
+  after();
+}
+function jobAction(k){
+  const j=S.job;if(!j)return;CUR=[];let t='';
+  if(k==='bosse'){if(S.energy<=0)return;S.energy--;S.yr.bosse++;j.perf=clamp(j.perf+R(8,14));fx({bonheur:-1});t='Tu as fait des heures sup. Ton manager a remarqué.';}
+  if(k==='augm'){S.talked._augm=true;if(chance(j.perf/130)){j.mult*=1.08;fx({bonheur:3});t='Augmentation de 8 % accordée !';}else{j.perf=clamp(j.perf-5);fx({bonheur:-2});t='Ton patron refuse. Mauvais timing.';}}
+  if(k==='quit'){if(CONFIRM!=='quit'){CONFIRM='quit';return render();}CONFIRM=null;t=`Tu quittes ton poste de ${jobTitle(j)}.`;S.job=null;}
+  log(t,CUR);toast(t,CUR);after();
+}
+function relAction(k,id){
+  const r=S.rel.find(x=>x.id===id);if(!r)return;CUR=[];let t='';
+  if(k==='temps'){S.talked[id]=true;S.yr.social++;r.rel=clamp(r.rel+R(6,12));fx({bonheur:R(1,3)});
+    t=pick([`Tu passes un super moment avec ${first(r)}.`,`Longue discussion avec ${first(r)}.`,`${first(r)} et toi riez aux larmes.`]);}
+  if(k==='argent'){S.talked[id]=true;if(chance(r.rel/120)){const m=S.perks.includes('rich')?R(2000,8000):R(100,1200);fx({money:m});t=`${first(r)} te donne ${fmt(m)}.`;}else{r.rel=clamp(r.rel-8);t=`${first(r)} refuse et te trouve un peu culotté${g('','e')}.`;}}
+  if(k==='cadeau'){S.talked[id]=true;fx({money:-R(80,200)});r.rel=clamp(r.rel+R(10,18));t=`${first(r)} adore ton cadeau.`;}
+  if(k==='mariage'){S.talked[id]=true;if(chance(r.rel/110)){t='💍 '+marry();}else{r.rel=clamp(r.rel-15);fx({bonheur:-5});t=`${first(r)} dit qu’il est trop tôt…`;}}
+  if(k==='rompre'){if(CONFIRM!=='rompre'+id){CONFIRM='rompre'+id;return render();}CONFIRM=null;t=breakUp(r,`Tu mets fin à ta relation avec ${first(r)}.`);}
+  log(t,CUR);toast(t,CUR);after();
+}
+
+/* ---------- Démarrage ---------- */
+function boot(data){
+  const d=(data&&data.S!==undefined)?data:load();
+  if(d){S=d.S||null;if(d.M)M=Object.assign(M,d.M);}
+  render();
+  if(S&&S.alive&&S.queue&&S.queue.length)runQueue();
+  else if(S&&!S.alive)showDeath();
+}
+try{window.claude?.hot?.snapshot?.(()=>({S,M}));}catch(e){}
+window.claude?.hot?.ready?window.claude.hot.ready(boot):boot(window.claude?.hot?.data??{});
+</script>
+
+</body>
+</html>
