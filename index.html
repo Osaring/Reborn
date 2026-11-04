@@ -6,7 +6,7 @@
 <title>Reborn</title>
 <meta name="apple-mobile-web-app-title" content="Reborn">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#eef0f7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#12131c" media="(prefers-color-scheme: dark)">
@@ -43,7 +43,7 @@ input{-webkit-user-select:text;user-select:text}
   padding-top:env(safe-area-inset-top,0px);padding-bottom:max(6px,calc(env(safe-area-inset-bottom,0px) - 14px));
   padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px))}
 #app>.screen{width:100%;max-width:520px}
-.pwa #app{padding-top:calc(env(safe-area-inset-top,0px) + 12px)}
+.pwa #app{padding-top:calc(env(safe-area-inset-top,0px) + 4px)}
 .screen{height:100%;display:flex;flex-direction:column}
 .main{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-block:6px 10px;scrollbar-width:none}
 .main::-webkit-scrollbar{display:none}
@@ -931,7 +931,7 @@ function relAction(k,id){
 
 
 /* ---------- Mises à jour ---------- */
-const APP_VERSION=5;
+const APP_VERSION=6;
 async function checkUpdate(manual){
   try{
     const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});
@@ -954,7 +954,7 @@ function fitScreen(){
   document.documentElement.classList.add('pwa');
   const portrait=innerHeight>=innerWidth;
   const h=Math.max(portrait?Math.max(screen.height,screen.width):Math.min(screen.height,screen.width),innerHeight);
-  for(const el of [$('#app'),$('#modal')]){el.style.bottom='auto';el.style.height=h+'px';}
+  void h;
 }
 addEventListener('resize',fitScreen);addEventListener('orientationchange',()=>setTimeout(fitScreen,200));
 function boot(data){
