@@ -43,6 +43,7 @@ input{-webkit-user-select:text;user-select:text}
   padding-top:env(safe-area-inset-top,0px);padding-bottom:max(6px,calc(env(safe-area-inset-bottom,0px) - 14px));
   padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px))}
 #app>.screen{width:100%;max-width:520px}
+.pwa #app{padding-top:calc(env(safe-area-inset-top,0px) + 12px)}
 .screen{height:100%;display:flex;flex-direction:column}
 .main{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-block:6px 10px;scrollbar-width:none}
 .main::-webkit-scrollbar{display:none}
@@ -930,7 +931,7 @@ function relAction(k,id){
 
 
 /* ---------- Mises à jour ---------- */
-const APP_VERSION=4;
+const APP_VERSION=5;
 async function checkUpdate(manual){
   try{
     const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});
@@ -945,6 +946,17 @@ async function checkUpdate(manual){
   }catch(e){if(manual)toast('Pas de connexion internet pour vérifier',[]);}
 }
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkUpdate(false);});
+
+/* ---------- Plein écran iPhone (app ajoutée à l'écran d'accueil) ---------- */
+function fitScreen(){
+  const pwa=navigator.standalone||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches);
+  if(!pwa)return;
+  document.documentElement.classList.add('pwa');
+  const portrait=innerHeight>=innerWidth;
+  const h=Math.max(portrait?Math.max(screen.height,screen.width):Math.min(screen.height,screen.width),innerHeight);
+  for(const el of [$('#app'),$('#modal')]){el.style.bottom='auto';el.style.height=h+'px';}
+}
+addEventListener('resize',fitScreen);addEventListener('orientationchange',()=>setTimeout(fitScreen,200));
 function boot(data){
   const d=(data&&data.S!==undefined)?data:load();
   if(d){S=d.S||null;if(d.M)M=Object.assign(M,d.M);}
@@ -952,7 +964,7 @@ function boot(data){
   if(S&&S.alive&&S.queue&&S.queue.length)runQueue();
   else if(S&&!S.alive)showDeath();
 }
-boot({});
+fitScreen();boot({});
 checkUpdate(false);
 </script>
 </body>
