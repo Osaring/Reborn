@@ -880,8 +880,9 @@ document.addEventListener('click',ev=>{
   if(d.tinfo){const t=trophyById(d.tinfo);toast(`${t.t} : ${t.d}`,[]);return;}
   if(b.id==='d-obj'){const ob=OBJ.find(o=>o.id===S.obj);toast(ob?`Objectif de l’année : ${ob.t}. Réussi = +1 ★`:'Les objectifs arrivent à 3 ans',[]);return;}
   if(b.id==='d-year'){ageUp();$('#panel').scrollTop=0;return;}
-  if(b.id==='g-menu'){openModal(`<div class="eh"><div class="ei">⚙️</div><div><h3>Options</h3></div></div><p style="font-size:14px;color:var(--muted)">Ta partie est sauvegardée automatiquement sur ce téléphone.</p><button class="next" id="m-close">Reprendre</button><button class="next" id="m-abandon" style="background:var(--surf2);color:var(--neg)">Abandonner cette vie</button>`);return;}
+  if(b.id==='g-menu'){openModal(`<div class="eh"><div class="ei">⚙️</div><div><h3>Options</h3></div></div><p style="font-size:14px;color:var(--muted)">Ta partie est sauvegardée automatiquement sur ce téléphone. Version ${APP_VERSION}.</p><button class="next" id="m-close">Reprendre</button><button class="next" id="m-update" style="background:var(--surf2);color:var(--fg)">Vérifier les mises à jour</button><button class="next" id="m-abandon" style="background:var(--surf2);color:var(--neg)">Abandonner cette vie</button>`);return;}
   if(b.id==='m-close'){closeModal();return;}
+  if(b.id==='m-update'){closeModal();checkUpdate(true);return;}
   if(b.id==='m-abandon'){b.id='m-abandon2';b.textContent='Confirmer l’abandon';return;}
   if(b.id==='m-abandon2'){closeModal();S=null;save();render();return;}
   if(d.choice!==undefined){choose(+d.choice);return;}
@@ -922,6 +923,23 @@ function relAction(k,id){
 }
 
 
+
+/* ---------- Mises à jour ---------- */
+const APP_VERSION=3;
+async function checkUpdate(manual){
+  try{
+    const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});
+    const v=(await r.json()).v;
+    if(v>APP_VERSION){
+      let tried=null;try{tried=sessionStorage.getItem('rb_try');}catch(e){}
+      if(tried==String(v)&&!manual){return;}
+      try{sessionStorage.setItem('rb_try',String(v));}catch(e){}
+      toast('Mise à jour en cours…',[]);save();
+      setTimeout(()=>location.replace(location.pathname+'?v='+v),400);
+    }else if(manual)toast(`Tu as la dernière version (v${APP_VERSION})`,[]);
+  }catch(e){if(manual)toast('Pas de connexion internet pour vérifier',[]);}
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkUpdate(false);});
 function boot(data){
   const d=(data&&data.S!==undefined)?data:load();
   if(d){S=d.S||null;if(d.M)M=Object.assign(M,d.M);}
@@ -930,6 +948,7 @@ function boot(data){
   else if(S&&!S.alive)showDeath();
 }
 boot({});
+checkUpdate(false);
 </script>
 </body>
 </html>
