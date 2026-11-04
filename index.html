@@ -842,11 +842,11 @@ const AI_SCHEMA={type:'OBJECT',properties:{
     failure:{type:'OBJECT',properties:{text:{type:'STRING'},bonheur:{type:'INTEGER'},sante:{type:'INTEGER'},intel:{type:'INTEGER'},charme:{type:'INTEGER'},argent:{type:'INTEGER'}},required:['text']}
   },required:['label','chance','success']}}
 },required:['icon','title','text','choices']};
-function aiContext(){
+function aiContext(A){
   const p=partner();const kids=S.rel.filter(r=>r.type==='enfant'&&r.alive).map(k=>`${first(k)} (${k.age} ans)`);
   const recent=S.log.slice(-10).map(e=>`- ${e.a} ans : ${e.t.replace(EMO,'')}`).join('\n');
   const seen=(S.aiSeen||[]).slice(-15).join(', ');
-  return `Personnage : ${S.first} ${S.last}, ${S.sex==='f'?'fille/femme':'garçon/homme'}, ${S.age} ans, vit à ${S.city}.
+  return `Personnage : ${S.first} ${S.last}, ${S.sex==='f'?'fille/femme':'garçon/homme'}, ${A} ans, vit à ${S.city}.
 Situation : ${statusLine()||'enfant'}. Diplôme : ${EDU[S.edu]}. Argent : ${Math.round(S.money)} €.
 Stats sur 100 : bonheur ${S.stats.bonheur}, santé ${S.stats.sante}, intelligence ${S.stats.intel}, charme ${S.stats.charme}.
 Couple : ${p?`${relLabel(p)} ${first(p)}`:'célibataire'}. Enfants : ${kids.join(', ')||'aucun'}. Animal : ${S.flags.pet?S.flags.pet.name:'aucun'}.
@@ -854,10 +854,10 @@ Derniers moments de sa vie :
 ${recent}
 Thèmes déjà utilisés récemment (à éviter) : ${seen||'aucun'}.`;
 }
-function aiPrompt(){
-  const minor=S.age<18;
-  return `Tu écris UN événement pour un jeu mobile de simulation de vie en français (style BitLife), pour l'année des ${S.age} ans du personnage.
-${aiContext()}
+function aiPrompt(A){
+  const minor=A<18;
+  return `Tu écris UN événement pour un jeu mobile de simulation de vie en français (style BitLife), pour l'année des ${A} ans du personnage.
+${aiContext(A)}
 
 Règles :
 - Événement surprenant, original et crédible pour cet âge et cette situation. Varie les registres : drôle, touchant, absurde, dilemme moral, coup de chance, galère du quotidien. Ne reprends pas un thème déjà utilisé.
@@ -868,7 +868,8 @@ Règles :
 - Les choix doivent avoir des conséquences différentes et pas de bonne réponse évidente.
 - ${minor?'Le personnage est mineur : aucune romance, aucun contenu sexuel, rien de choquant. Reste adapté à son âge.':'Pas de contenu sexuel explicite ni de violence graphique.'}`;
 }
-async function aiGenerate(){
+let AI_NOTHINK=true;
+async function aiGenerate(A){
   let lastErr='';
   for(const force of [false,true]){
     const models=await aiModels(force);
@@ -877,8 +878,9 @@ async function aiGenerate(){
         const ctrl=new AbortController();const to=setTimeout(()=>ctrl.abort(),25000);
         const r=await fetch(`${AI_BASE}models/${model}:generateContent`,{method:'POST',signal:ctrl.signal,
           headers:{'Content-Type':'application/json','x-goog-api-key':aiKey()},
-          body:JSON.stringify({contents:[{role:'user',parts:[{text:aiPrompt()}]}],generationConfig:{temperature:1.1,responseMimeType:'application/json',responseSchema:AI_SCHEMA}})});
+          body:JSON.stringify({contents:[{role:'user',parts:[{text:aiPrompt(A)}]}],generationConfig:Object.assign({temperature:1.1,maxOutputTokens:900,responseMimeType:'application/json',responseSchema:AI_SCHEMA},AI_NOTHINK?{thinkingConfig:{thinkingBudget:0}}:{})})});
         clearTimeout(to);
+        if(!r.ok&&r.status===400&&AI_NOTHINK){AI_NOTHINK=false;return aiGenerate(A);}
         if(!r.ok){const t=await r.text().catch(()=>'');lastErr=(r.status===429?'quota':r.status===403?'cle':'http'+r.status)+'|'+model+' '+t.slice(0,120);AI_LAST_ERR=lastErr;if(r.status===403)throw new Error(lastErr);continue;}
         const j=await r.json();
         let txt=(j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts||[]).map(p=>p.text||'').join('');
@@ -886,15 +888,15 @@ async function aiGenerate(){
         const ev=JSON.parse(txt);
         if(!ev.choices||!ev.choices.length)throw new Error('vide');
         try{localStorage.setItem('rb_models',JSON.stringify([model].concat(models.filter(m=>m!==model))));}catch(e){}
-        return sanitizeAI(ev);
+        return sanitizeAI(ev,A);
       }catch(e){if(String(e.message).startsWith('cle'))throw e;lastErr=lastErr||('reseau|'+model+' '+(e.name==='AbortError'?'délai dépassé':e.message));AI_LAST_ERR=lastErr;}
     }
     if(lastErr.startsWith('quota'))break;
   }
   throw new Error(lastErr||'erreur');
 }
-function sanitizeAI(ev){
-  const minor=S.age<18;const cap=minor?100:Math.max(3000,Math.round(Math.abs(S.money)*0.4));
+function sanitizeAI(ev,A){
+  const minor=A<18;const cap=minor?100:Math.max(3000,Math.round(Math.abs(S.money)*0.4));
   const cl=o=>o?{text:String(o.text||'').slice(0,200),bonheur:clamp(o.bonheur|0,-15,15),sante:clamp(o.sante|0,-15,15),intel:clamp(o.intel|0,-15,15),charme:clamp(o.charme|0,-15,15),argent:clamp(Math.round(o.argent||0),-cap,cap)}:null;
   return {icon:[...String(ev.icon||'✨')][0]||'✨',title:String(ev.title||'Imprévu').slice(0,40),text:String(ev.text||'').slice(0,240),
     choices:ev.choices.slice(0,3).map(c=>({label:String(c.label||'…').slice(0,60),chance:Math.min(1,Math.max(.1,+c.chance||1)),success:cl(c.success),failure:cl(c.failure)}))};
@@ -907,14 +909,21 @@ function aiEventObj(){
     return o.text;}}))};
 }
 function getEv(id){return id==='ai'?aiEventObj():EV[id];}
-let AI_BUSY=false;
+let AI_BUSY=false,PREF=null;
+function aiPrefetch(){
+  if(!S||!S.alive||!aiOn()||PREF)return;
+  const A=S.age+1;if(A<3||(S.aiNext&&S.aiNext.age===A))return;
+  PREF=aiGenerate(A).then(ev=>{if(S&&S.alive){S.aiNext={age:A,ev};save();}}).catch(e=>{AI_LAST_ERR=String(e.message);}).finally(()=>{PREF=null;});
+}
+function useAI(ev){S.aiEv=ev;S.aiSeen=(S.aiSeen||[]).concat(ev.title).slice(-30);S.queue[0]='ai';}
 async function aiLoad(){
   if(AI_BUSY)return;AI_BUSY=true;
+  if(S.aiNext&&S.aiNext.age===S.age){useAI(S.aiNext.ev);S.aiNext=null;AI_BUSY=false;save();return runQueue();}
   openModal(`<div class="eh"><div class="ei ai-spin">✦</div><div><div class="ag">${S.age} an${S.age>1?'s':''}</div><h3>Le destin s’écrit…</h3></div></div><p style="color:var(--muted);font-size:14px">L’IA imagine ton prochain événement.</p>`);
   try{
-    S.aiEv=await aiGenerate();
-    S.aiSeen=(S.aiSeen||[]).concat(S.aiEv.title).slice(-30);
-    S.queue[0]='ai';
+    if(PREF)await PREF;
+    if(S.aiNext&&S.aiNext.age===S.age){useAI(S.aiNext.ev);S.aiNext=null;}
+    else useAI(await aiGenerate(S.age));
   }catch(e){
     S.queue.shift();
     const alt=pickEvents()[0];if(alt)S.queue.unshift(alt);
@@ -952,7 +961,7 @@ function openModal(html){$('#sheet').innerHTML=html;$('#modal').hidden=false;}
 function closeModal(){$('#modal').hidden=true;}
 function runQueue(){
   if(!S||!S.alive)return;
-  if(!S.queue.length){closeModal();render();return;}
+  if(!S.queue.length){closeModal();render();aiPrefetch();return;}
   if(S.queue[0]==='ai_pending'){if(aiOn())return aiLoad();S.queue.shift();return runQueue();}
   const e=getEv(S.queue[0]);
   if(!e||(e.cond&&!e.cond())){S.queue.shift();return runQueue();}
@@ -1022,7 +1031,7 @@ document.addEventListener('click',ev=>{
   if(b.id==='d-obj'){const ob=OBJ.find(o=>o.id===S.obj);toast(ob?`Objectif de l’année : ${ob.t}. Réussi = +1 ★`:'Les objectifs arrivent à 3 ans',[]);return;}
   if(b.id==='d-year'){ageUp();$('#panel').scrollTop=0;return;}
   if(b.id==='g-menu'||b.id==='s-menu'){optionsModal();return;}
-  if(b.id==='m-savekey'){const v=($('#m-key').value||'').trim();try{if(v)localStorage.setItem('rb_gkey',v);else localStorage.removeItem('rb_gkey');localStorage.removeItem('rb_ai_off');}catch(e){}optionsModal();if(v)aiTest();else $('#m-aist').textContent='Clé supprimée';return;}
+  if(b.id==='m-savekey'){const v=($('#m-key').value||'').trim();try{if(v)localStorage.setItem('rb_gkey',v);else localStorage.removeItem('rb_gkey');localStorage.removeItem('rb_ai_off');}catch(e){}optionsModal();if(v){aiTest();if(S)S.aiNext=null;setTimeout(aiPrefetch,1500);}else $('#m-aist').textContent='Clé supprimée';return;}
   if(b.id==='m-testkey'){aiTest();return;}
   if(b.id==='m-toggleai'){try{const o=localStorage.getItem('rb_ai_off')==='1';o?localStorage.removeItem('rb_ai_off'):localStorage.setItem('rb_ai_off','1');}catch(e){}optionsModal();return;}
   if(b.id==='g-refresh'||b.id==='g-refresh2'){save();b.style.transform='rotate(180deg)';b.style.transition='transform .3s';setTimeout(()=>location.replace(location.pathname+'?r='+Date.now()),250);return;}
@@ -1070,7 +1079,7 @@ function relAction(k,id){
 
 
 /* ---------- Mises à jour ---------- */
-const APP_VERSION=8;
+const APP_VERSION=9;
 async function checkUpdate(manual){
   try{
     const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});
@@ -1102,6 +1111,7 @@ function boot(data){
   render();
   if(S&&S.alive&&S.queue&&S.queue.length)runQueue();
   else if(S&&!S.alive)showDeath();
+  else aiPrefetch();
 }
 fitScreen();boot({});
 checkUpdate(false);
